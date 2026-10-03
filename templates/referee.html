@@ -43,18 +43,12 @@
                 </div>
                 <div class="referee-controls">
                     {% if match.sport == "basketball" %}
-                    <button class="referee-btn ft" onclick="recordEvent('ft', 'team1')">+1 FT</button>
                     <button class="referee-btn two" onclick="recordEvent('2pt', 'team1')">+2</button>
                     <button class="referee-btn three" onclick="recordEvent('3pt', 'team1')">+3</button>
-                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('rebound', 'team1')">Rebound</button>
                     <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team1')">Assist</button>
-                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('block', 'team1')">Block</button>
-                    <button class="referee-btn foul" onclick="recordFoul('team1')">Foul</button>
                     {% elif match.sport == "football" %}
                     <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('goal', 'team1')">Goal</button>
                     <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team1')">Assist</button>
-                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('save', 'team1')">Save</button>
-                    <button class="referee-btn foul" onclick="recordFoul('team1')">Foul</button>
                     {% endif %}
                 </div>
             </div>
@@ -71,18 +65,12 @@
                 </div>
                 <div class="referee-controls">
                     {% if match.sport == "basketball" %}
-                    <button class="referee-btn ft" onclick="recordEvent('ft', 'team2')">+1 FT</button>
                     <button class="referee-btn two" onclick="recordEvent('2pt', 'team2')">+2</button>
                     <button class="referee-btn three" onclick="recordEvent('3pt', 'team2')">+3</button>
-                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('rebound', 'team2')">Rebound</button>
                     <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team2')">Assist</button>
-                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('block', 'team2')">Block</button>
-                    <button class="referee-btn foul" onclick="recordFoul('team2')">Foul</button>
                     {% elif match.sport == "football" %}
                     <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('goal', 'team2')">Goal</button>
                     <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team2')">Assist</button>
-                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('save', 'team2')">Save</button>
-                    <button class="referee-btn foul" onclick="recordFoul('team2')">Foul</button>
                     {% endif %}
                 </div>
             </div>
@@ -101,22 +89,6 @@
 
         <a href="/match/{{ match.id }}/scoreboard" class="btn btn-secondary btn-full" style="margin-top: 0.5rem;" target="_blank">Open Live Scoreboard</a>
         {% endif %}
-    </div>
-</div>
-
-<div id="foul-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
-    <div class="card" style="max-width: 400px; margin: 0;">
-        <h3>Record Foul</h3>
-        <div class="form-group">
-            <label>Player who drew the foul</label>
-            <select id="foul-target">
-                <option value="">Select player</option>
-            </select>
-        </div>
-        <div style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-full" onclick="submitFoul()">Confirm Foul</button>
-            <button class="btn btn-secondary btn-full" onclick="closeFoulModal()">Cancel</button>
-        </div>
     </div>
 </div>
 
@@ -176,64 +148,6 @@ function recordEvent(eventType, team) {
         if (data.success) {
             document.getElementById('team1-score').textContent = data.team1_score;
             document.getElementById('team2-score').textContent = data.team2_score;
-        }
-    })
-    .catch(error => console.error('Error:', error));
-}
-
-function recordFoul(team) {
-    currentTeam = team;
-    const playerSelect = document.getElementById(`${team}-player`);
-    currentPlayerId = playerSelect.value;
-
-    // Populate target player dropdown with all players from both teams
-    const targetSelect = document.getElementById('foul-target');
-    targetSelect.innerHTML = '<option value="">Select player who drew the foul</option>';
-
-    const team1Players = document.getElementById('team1-player').options;
-    const team2Players = document.getElementById('team2-player').options;
-
-    for (let i = 0; i < team1Players.length; i++) {
-        const option = document.createElement('option');
-        option.value = team1Players[i].value;
-        option.textContent = team1Players[i].textContent;
-        targetSelect.appendChild(option);
-    }
-
-    for (let i = 0; i < team2Players.length; i++) {
-        const option = document.createElement('option');
-        option.value = team2Players[i].value;
-        option.textContent = team2Players[i].textContent;
-        targetSelect.appendChild(option);
-    }
-
-    document.getElementById('foul-modal').style.display = 'flex';
-}
-
-function closeFoulModal() {
-    document.getElementById('foul-modal').style.display = 'none';
-    document.getElementById('foul-target').value = '';
-}
-
-function submitFoul() {
-    const targetPlayerId = document.getElementById('foul-target').value;
-
-    if (!targetPlayerId) {
-        alert('Please select a player who drew the foul');
-        return;
-    }
-
-    fetch('/referee/event', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `match_id=${matchId}&player_id=${currentPlayerId}&event_type=foul_given&target_player_id=${targetPlayerId}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            closeFoulModal();
         }
     })
     .catch(error => console.error('Error:', error));

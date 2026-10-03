@@ -43,12 +43,10 @@
                         <div class="list-item-meta">
                             {% if match.sport == "basketball" %}
                             {{ player_stats.get(member.id, {}).get('points', 0) }} pts • 
-                            {{ player_stats.get(member.id, {}).get('rebounds', 0) }} reb • 
                             {{ player_stats.get(member.id, {}).get('assists', 0) }} ast
                             {% else %}
                             {{ player_stats.get(member.id, {}).get('goals', 0) }} goals • 
-                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast • 
-                            {{ player_stats.get(member.id, {}).get('saves', 0) }} saves
+                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast
                             {% endif %}
                         </div>
                     </div>
@@ -65,12 +63,10 @@
                         <div class="list-item-meta">
                             {% if match.sport == "basketball" %}
                             {{ player_stats.get(member.id, {}).get('points', 0) }} pts • 
-                            {{ player_stats.get(member.id, {}).get('rebounds', 0) }} reb • 
                             {{ player_stats.get(member.id, {}).get('assists', 0) }} ast
                             {% else %}
                             {{ player_stats.get(member.id, {}).get('goals', 0) }} goals • 
-                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast • 
-                            {{ player_stats.get(member.id, {}).get('saves', 0) }} saves
+                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast
                             {% endif %}
                         </div>
                     </div>

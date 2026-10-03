@@ -63,28 +63,13 @@ def calculate_stats(user: User):
 
     if user.sport == "basketball":
         stats.update({
-            "total_points": user.total_points,
             "points_per_game": round(user.total_points / user.total_games, 1) if user.total_games > 0 else 0,
-            "total_rebounds": user.total_rebounds,
-            "rebounds_per_game": round(user.total_rebounds / user.total_games, 1) if user.total_games > 0 else 0,
-            "total_assists": user.total_assists,
             "assists_per_game": round(user.total_assists / user.total_games, 1) if user.total_games > 0 else 0,
-            "free_throw_percentage": round((user.total_free_throws_made / user.total_free_throws) * 100, 1) if user.total_free_throws > 0 else 0,
-            "field_goal_percentage": round((user.total_field_goals_made / user.total_field_goals) * 100, 1) if user.total_field_goals > 0 else 0,
-            "three_point_percentage": round((user.total_three_pointers_made / user.total_three_pointers) * 100, 1) if user.total_three_pointers > 0 else 0,
-            "total_fouls": user.total_fouls_committed,
-            "fouls_per_game": round(user.total_fouls_committed / user.total_games, 1) if user.total_games > 0 else 0,
         })
     elif user.sport == "football":
         stats.update({
-            "total_goals": user.total_goals,
             "goals_per_game": round(user.total_goals / user.total_games, 1) if user.total_games > 0 else 0,
-            "total_assists": user.total_assists,
             "assists_per_game": round(user.total_assists / user.total_games, 1) if user.total_games > 0 else 0,
-            "total_saves": user.total_saves,
-            "saves_per_game": round(user.total_saves / user.total_games, 1) if user.total_games > 0 else 0,
-            "total_fouls": user.total_fouls_committed,
-            "fouls_per_game": round(user.total_fouls_committed / user.total_games, 1) if user.total_games > 0 else 0,
         })
 
     return stats
@@ -963,71 +948,23 @@ async def end_match(
         if event.player_id not in player_stats:
             player_stats[event.player_id] = {
                 "points": 0,
-                "fts": 0,
-                "fts_made": 0,
-                "field_goals": 0,
-                "field_goals_made": 0,
-                "three_pointers": 0,
-                "three_pointers_made": 0,
-                "rebounds": 0,
                 "assists": 0,
-                "goals": 0,
-                "saves": 0,
-                "fouls_given": 0,
-                "fouls_received": 0
+                "goals": 0
             }
 
         if match.sport == "basketball":
             if event.event_type == "2pt":
                 player_stats[event.player_id]["points"] += 2
-                player_stats[event.player_id]["field_goals"] += 1
-                player_stats[event.player_id]["field_goals_made"] += 1
             elif event.event_type == "3pt":
                 player_stats[event.player_id]["points"] += 3
-                player_stats[event.player_id]["three_pointers"] += 1
-                player_stats[event.player_id]["three_pointers_made"] += 1
-                player_stats[event.player_id]["field_goals"] += 1
-                player_stats[event.player_id]["field_goals_made"] += 1
-            elif event.event_type == "ft":
-                player_stats[event.player_id]["points"] += 1
-                player_stats[event.player_id]["fts"] += 1
-                player_stats[event.player_id]["fts_made"] += 1
-            elif event.event_type == "rebound":
-                player_stats[event.player_id]["rebounds"] += 1
             elif event.event_type == "assist":
                 player_stats[event.player_id]["assists"] += 1
-            elif event.event_type == "block":
-                player_stats[event.player_id]["rebounds"] += 1
-                player_stats[event.player_id]["points"] += 1
         elif match.sport == "football":
             if event.event_type == "goal":
                 player_stats[event.player_id]["goals"] += 1
                 player_stats[event.player_id]["points"] += 1
             elif event.event_type == "assist":
                 player_stats[event.player_id]["assists"] += 1
-            elif event.event_type == "save":
-                player_stats[event.player_id]["saves"] += 1
-
-        if event.event_type == "foul_given":
-            player_stats[event.player_id]["fouls_given"] += 1
-            if event.target_player_id:
-                if event.target_player_id not in player_stats:
-                    player_stats[event.target_player_id] = {
-                        "points": 0,
-                        "fts": 0,
-                        "fts_made": 0,
-                        "field_goals": 0,
-                        "field_goals_made": 0,
-                        "three_pointers": 0,
-                        "three_pointers_made": 0,
-                        "rebounds": 0,
-                        "assists": 0,
-                        "goals": 0,
-                        "saves": 0,
-                        "fouls_given": 0,
-                        "fouls_received": 0
-                    }
-                player_stats[event.target_player_id]["fouls_received"] += 1
 
     # Find MVP (player with most points/goals)
     mvp_id = None
@@ -1044,18 +981,8 @@ async def end_match(
         user = db.query(User).filter(User.id == player_id).first()
         if user:
             user.total_points += stats["points"]
-            user.total_free_throws += stats["fts"]
-            user.total_free_throws_made += stats["fts_made"]
-            user.total_field_goals += stats["field_goals"]
-            user.total_field_goals_made += stats["field_goals_made"]
-            user.total_three_pointers += stats["three_pointers"]
-            user.total_three_pointers_made += stats["three_pointers_made"]
-            user.total_rebounds += stats["rebounds"]
             user.total_assists += stats["assists"]
             user.total_goals += stats["goals"]
-            user.total_saves += stats["saves"]
-            user.total_fouls_committed += stats["fouls_given"]
-            user.total_fouls_received += stats["fouls_received"]
             user.total_games += 1
 
     # Flush to ensure all changes are written
@@ -1123,31 +1050,20 @@ async def match_scoreboard(
         if event.player_id not in player_stats:
             player_stats[event.player_id] = {
                 "points": 0,
-                "rebounds": 0,
                 "assists": 0,
-                "goals": 0,
-                "saves": 0,
-                "fouls": 0
+                "goals": 0
             }
 
-        if event.event_type in ["2pt", "3pt", "ft", "goal"]:
+        if event.event_type in ["2pt", "3pt", "goal"]:
             if event.event_type == "2pt":
                 player_stats[event.player_id]["points"] += 2
             elif event.event_type == "3pt":
                 player_stats[event.player_id]["points"] += 3
-            elif event.event_type == "ft":
-                player_stats[event.player_id]["points"] += 1
             elif event.event_type == "goal":
                 player_stats[event.player_id]["points"] += 1
                 player_stats[event.player_id]["goals"] += 1
-        elif event.event_type == "rebound":
-            player_stats[event.player_id]["rebounds"] += 1
         elif event.event_type == "assist":
             player_stats[event.player_id]["assists"] += 1
-        elif event.event_type == "save":
-            player_stats[event.player_id]["saves"] += 1
-        elif event.event_type == "foul_given":
-            player_stats[event.player_id]["fouls"] += 1
 
     return templates.TemplateResponse("scoreboard.html", {
         "request": request,
