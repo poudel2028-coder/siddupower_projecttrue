@@ -96,6 +96,11 @@
             <div>
                 <div class="list-item-name">{{ friend.username }}</div>
                 <div class="list-item-meta">{{ friend.total_points }} pts • {{ friend.total_wins }}-{{ friend.total_losses }}</div>
+                {% if friend_records[friend.id].total_matches > 0 %}
+                <div class="list-item-meta" style="color: var(--accent);">
+                    🏀 1v1 Record: You {{ friend_records[friend.id].user_wins }} - {{ friend_records[friend.id].friend_wins }} {{ friend.username }}
+                </div>
+                {% endif %}
             </div>
             <div class="list-item-actions">
                 <a href="/player/{{ friend.id }}/heatmap" class="btn btn-sm">Heat Map</a>

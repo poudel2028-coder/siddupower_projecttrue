@@ -460,6 +460,30 @@ async def friends_page(request: Request, db: Session = Depends(get_db)):
             most_assisted_count = count
             most_assisted_player = db.query(User).filter(User.id == player_id).first()
 
+    # Calculate 1v1 head-to-head records for each friend
+    friend_records = {}
+    for friend in friends:
+        # Get completed 1v1 matches between current user and this friend
+        matches = db.query(OneOnOneMatch).filter(
+            OneOnOneMatch.status == "completed",
+            ((OneOnOneMatch.player1_id == current_user.id) & (OneOnOneMatch.player2_id == friend.id)) |
+            ((OneOnOneMatch.player1_id == friend.id) & (OneOnOneMatch.player2_id == current_user.id))
+        ).all()
+
+        user_wins = 0
+        friend_wins = 0
+        for match in matches:
+            if match.winner_id == current_user.id:
+                user_wins += 1
+            elif match.winner_id == friend.id:
+                friend_wins += 1
+
+        friend_records[friend.id] = {
+            "user_wins": user_wins,
+            "friend_wins": friend_wins,
+            "total_matches": len(matches)
+        }
+
     return templates.TemplateResponse("friends.html", {
         "request": request,
         "user": current_user,
@@ -469,7 +493,8 @@ async def friends_page(request: Request, db: Session = Depends(get_db)):
         "most_fouled_player": most_fouled_player,
         "most_fouled_count": most_fouled_count,
         "most_assisted_player": most_assisted_player,
-        "most_assisted_count": most_assisted_count
+        "most_assisted_count": most_assisted_count,
+        "friend_records": friend_records
     })
 
 
