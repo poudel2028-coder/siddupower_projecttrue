@@ -73,6 +73,39 @@ body {
     align-items: center;
 }
 
+.burger-menu {
+    display: none;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 30px;
+    height: 25px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 101;
+}
+
+.burger-menu span {
+    width: 30px;
+    height: 3px;
+    background: var(--text-primary);
+    border-radius: 3px;
+    transition: all 0.3s ease;
+}
+
+.burger-menu.active span:nth-child(1) {
+    transform: rotate(45deg) translate(8px, 8px);
+}
+
+.burger-menu.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.burger-menu.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -7px);
+}
+
 .nav-link {
     color: var(--text-secondary);
     text-decoration: none;
@@ -362,7 +395,9 @@ body {
     letter-spacing: 0.5px;
 }
 
-.match-status.pending {
+.match-status.pending,
+.match-status.pending_challenge,
+.match-status.pending_referee {
     background-color: rgba(255, 149, 0, 0.2);
     color: var(--warning);
 }
@@ -413,34 +448,56 @@ body {
 }
 
 @media (max-width: 768px) {
+    .burger-menu {
+        display: flex;
+    }
+
+    .nav-links {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        height: 100vh;
+        width: 70%;
+        max-width: 300px;
+        background: var(--bg-secondary);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 2rem;
+        transition: right 0.3s ease;
+        border-left: 1px solid var(--border);
+        box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .nav-links.active {
+        right: 0;
+    }
+
+    .nav-link {
+        font-size: 1.1rem;
+        padding: 1rem 2rem;
+    }
+
     .nav-container {
         padding: 1rem;
     }
-    
-    .nav-links {
-        gap: 1rem;
-    }
-    
-    .nav-link {
-        font-size: 0.85rem;
-    }
-    
+
     .main-content {
         padding: 1rem;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .referee-dashboard {
         grid-template-columns: 1fr;
     }
-    
+
     .score-display {
         gap: 1rem;
     }
-    
+
     .team-score-value {
         font-size: 3rem;
     }
@@ -554,4 +611,17 @@ body {
 
 .container {
     animation: fadeIn 0.5s ease-out;
+}
+
+.charts-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 300px;
+    width: 100%;
 }

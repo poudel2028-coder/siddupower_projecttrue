@@ -6,7 +6,18 @@
 <div class="container">
     <div class="card">
         <h2>Referee Dashboard</h2>
-        
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sport: {{ match.sport|capitalize }}</p>
+
+        <!-- Stopwatch -->
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div id="stopwatch" style="font-size: 3rem; font-weight: 800; font-family: 'SF Mono', Monaco, monospace; margin-bottom: 1rem;">00:00:00</div>
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button class="btn" onclick="startStopwatch()">Start</button>
+                <button class="btn btn-secondary" onclick="stopStopwatch()">Stop</button>
+                <button class="btn btn-danger" onclick="resetStopwatch()">Reset</button>
+            </div>
+        </div>
+
         <div class="score-display">
             <div class="team-score">
                 <div class="team-score-name">{{ team1.name }}</div>
@@ -31,10 +42,20 @@
                     </select>
                 </div>
                 <div class="referee-controls">
+                    {% if match.sport == "basketball" %}
                     <button class="referee-btn ft" onclick="recordEvent('ft', 'team1')">+1 FT</button>
                     <button class="referee-btn two" onclick="recordEvent('2pt', 'team1')">+2</button>
                     <button class="referee-btn three" onclick="recordEvent('3pt', 'team1')">+3</button>
+                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('rebound', 'team1')">Rebound</button>
+                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team1')">Assist</button>
+                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('block', 'team1')">Block</button>
                     <button class="referee-btn foul" onclick="recordFoul('team1')">Foul</button>
+                    {% elif match.sport == "football" %}
+                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('goal', 'team1')">Goal</button>
+                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team1')">Assist</button>
+                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('save', 'team1')">Save</button>
+                    <button class="referee-btn foul" onclick="recordFoul('team1')">Foul</button>
+                    {% endif %}
                 </div>
             </div>
 
@@ -49,10 +70,20 @@
                     </select>
                 </div>
                 <div class="referee-controls">
+                    {% if match.sport == "basketball" %}
                     <button class="referee-btn ft" onclick="recordEvent('ft', 'team2')">+1 FT</button>
                     <button class="referee-btn two" onclick="recordEvent('2pt', 'team2')">+2</button>
                     <button class="referee-btn three" onclick="recordEvent('3pt', 'team2')">+3</button>
+                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('rebound', 'team2')">Rebound</button>
+                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team2')">Assist</button>
+                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('block', 'team2')">Block</button>
                     <button class="referee-btn foul" onclick="recordFoul('team2')">Foul</button>
+                    {% elif match.sport == "football" %}
+                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('goal', 'team2')">Goal</button>
+                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team2')">Assist</button>
+                    <button class="referee-btn" style="background: var(--warning);" onclick="recordEvent('save', 'team2')">Save</button>
+                    <button class="referee-btn foul" onclick="recordFoul('team2')">Foul</button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -87,10 +118,44 @@ const matchId = {{ match.id }};
 let currentTeam = '';
 let currentPlayerId = '';
 
+// Stopwatch functionality
+let stopwatchInterval;
+let stopwatchTime = 0;
+
+function formatTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function startStopwatch() {
+    if (!stopwatchInterval) {
+        stopwatchInterval = setInterval(() => {
+            stopwatchTime += 1000;
+            document.getElementById('stopwatch').textContent = formatTime(stopwatchTime);
+        }, 1000);
+    }
+}
+
+function stopStopwatch() {
+    if (stopwatchInterval) {
+        clearInterval(stopwatchInterval);
+        stopwatchInterval = null;
+    }
+}
+
+function resetStopwatch() {
+    stopStopwatch();
+    stopwatchTime = 0;
+    document.getElementById('stopwatch').textContent = '00:00:00';
+}
+
 function recordEvent(eventType, team) {
     const playerSelect = document.getElementById(`${team}-player`);
     const playerId = playerSelect.value;
-    
+
     fetch('/referee/event', {
         method: 'POST',
         headers: {
@@ -112,28 +177,28 @@ function recordFoul(team) {
     currentTeam = team;
     const playerSelect = document.getElementById(`${team}-player`);
     currentPlayerId = playerSelect.value;
-    
+
     // Populate target player dropdown with all players from both teams
     const targetSelect = document.getElementById('foul-target');
     targetSelect.innerHTML = '<option value="">Select player who drew the foul</option>';
-    
+
     const team1Players = document.getElementById('team1-player').options;
     const team2Players = document.getElementById('team2-player').options;
-    
+
     for (let i = 0; i < team1Players.length; i++) {
         const option = document.createElement('option');
         option.value = team1Players[i].value;
         option.textContent = team1Players[i].textContent;
         targetSelect.appendChild(option);
     }
-    
+
     for (let i = 0; i < team2Players.length; i++) {
         const option = document.createElement('option');
         option.value = team2Players[i].value;
         option.textContent = team2Players[i].textContent;
         targetSelect.appendChild(option);
     }
-    
+
     document.getElementById('foul-modal').style.display = 'flex';
 }
 
@@ -144,12 +209,12 @@ function closeFoulModal() {
 
 function submitFoul() {
     const targetPlayerId = document.getElementById('foul-target').value;
-    
+
     if (!targetPlayerId) {
         alert('Please select a player who drew the foul');
         return;
     }
-    
+
     fetch('/referee/event', {
         method: 'POST',
         headers: {

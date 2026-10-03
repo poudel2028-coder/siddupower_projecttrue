@@ -6,7 +6,7 @@
 <div class="container">
     <div class="card">
         <h2>Friends</h2>
-        
+
         <form method="post" action="/friends/add" style="margin-bottom: 2rem;">
             <div class="form-group">
                 <label for="username">Add friend by username</label>
@@ -19,6 +19,26 @@
 
         {% if error %}
         <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        {% if pending_requests %}
+        <h3>Pending Friend Requests</h3>
+        {% for request in pending_requests %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">{{ request.username }}</div>
+                <div class="list-item-meta">Wants to be your friend</div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <form method="post" action="/friends/accept/{{ request.id }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                </form>
+                <form method="post" action="/friends/decline/{{ request.id }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-danger">Decline</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
         {% endif %}
 
         <h3>Your Friends</h3>

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Refereeing - Sports Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Refereeing Dashboard</h2>
+
+        {% if error %}
+        <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        {% if pending_requests %}
+        <h3>Pending Referee Requests</h3>
+        {% for request in pending_requests %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">Match #{{ request.match.id }}</div>
+                <div class="list-item-meta">Sport: {{ request.match.sport|capitalize }}</div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <form method="post" action="/refereeing/accept/{{ request.id }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                </form>
+                <form method="post" action="/refereeing/decline/{{ request.id }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-danger">Decline</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color: var(--text-secondary);">No pending referee requests.</p>
+        {% endif %}
+
+        {% if active_matches %}
+        <h3 style="margin-top: 2rem;">Active Matches</h3>
+        {% for match in active_matches %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">Match #{{ match.id }}</div>
+                <div class="list-item-meta">Score: {{ match.team1_score }} - {{ match.team2_score }}</div>
+            </div>
+            <a href="/referee/{{ match.id }}" class="btn btn-sm btn-success">Continue Refereeing</a>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if accepted_matches %}
+        <h3 style="margin-top: 2rem;">Ready to Start</h3>
+        {% for match in accepted_matches %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">Match #{{ match.id }}</div>
+                <div class="list-item-meta">Sport: {{ match.sport|capitalize }}</div>
+            </div>
+            <form method="post" action="/match/{{ match.id }}/start" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-success">Start Match</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

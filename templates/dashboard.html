@@ -6,31 +6,101 @@
 <div class="container">
     <div class="card">
         <h2>Hello, {{ user.username }}</h2>
-        
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sport: {{ stats.sport|capitalize }}</p>
+
         <div class="stats-grid">
             <div class="stat-item">
-                <div class="stat-value">{{ user.total_points }}</div>
-                <div class="stat-label">Total Points</div>
+                <div class="stat-value">{{ stats.games_played }}</div>
+                <div class="stat-label">Games Played</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{{ user.total_games }}</div>
-                <div class="stat-label">Games</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ user.total_wins }}</div>
+                <div class="stat-value">{{ stats.wins }}</div>
                 <div class="stat-label">Wins</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{{ user.total_losses }}</div>
+                <div class="stat-value">{{ stats.losses }}</div>
                 <div class="stat-label">Losses</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{{ user.total_free_throws }}</div>
-                <div class="stat-label">Free Throws</div>
+                <div class="stat-value">{{ stats.win_rate }}%</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
+        </div>
+    </div>
+
+    {% if stats.sport == "basketball" %}
+    <div class="card">
+        <h3>Basketball Stats</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.points_per_game }}</div>
+                <div class="stat-label">PPG</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{{ user.total_fouls_committed }}</div>
-                <div class="stat-label">Fouls</div>
+                <div class="stat-value">{{ stats.rebounds_per_game }}</div>
+                <div class="stat-label">RPG</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.assists_per_game }}</div>
+                <div class="stat-label">APG</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.field_goal_percentage }}%</div>
+                <div class="stat-label">FG%</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.three_point_percentage }}%</div>
+                <div class="stat-label">3P%</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.free_throw_percentage }}%</div>
+                <div class="stat-label">FT%</div>
+            </div>
+        </div>
+    </div>
+    {% elif stats.sport == "football" %}
+    <div class="card">
+        <h3>Football Stats</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.goals_per_game }}</div>
+                <div class="stat-label">Goals/Game</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.assists_per_game }}</div>
+                <div class="stat-label">Assists/Game</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.saves_per_game }}</div>
+                <div class="stat-label">Saves/Game</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.total_goals }}</div>
+                <div class="stat-label">Total Goals</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.total_assists }}</div>
+                <div class="stat-label">Total Assists</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.total_saves }}</div>
+                <div class="stat-label">Total Saves</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="charts-container">
+        <div class="card">
+            <h3>Win/Loss Ratio</h3>
+            <div class="chart-wrapper">
+                <canvas id="winLossChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Recent Performance</h3>
+            <div class="chart-wrapper">
+                <canvas id="performanceChart"></canvas>
             </div>
         </div>
     </div>
@@ -42,7 +112,7 @@
         <div class="list-item">
             <div>
                 <div class="list-item-name">{{ team.name }}</div>
-                <div class="list-item-meta">Code: {{ team.join_code }}</div>
+                <div class="list-item-meta">Code: {{ team.join_code }} | Sport: {{ team.sport|capitalize }}</div>
             </div>
             <a href="/teams/{{ team.id }}" class="btn btn-sm btn-secondary">View</a>
         </div>
@@ -58,7 +128,7 @@
         {% for match in recent_matches %}
         <div class="list-item">
             <div>
-                <div class="list-item-name">Match #{{ match.id }}</div>
+                <div class="list-item-name">Match #{{ match.id }} ({{ match.sport|capitalize }})</div>
                 <div class="list-item-meta">
                     <span class="match-status {{ match.status }}">{{ match.status }}</span>
                     Final: {{ match.team1_score }} - {{ match.team2_score }}
@@ -72,4 +142,80 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Win/Loss Pie Chart
+const winLossCtx = document.getElementById('winLossChart').getContext('2d');
+new Chart(winLossCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Wins', 'Losses'],
+        datasets: [{
+            data: [{{ stats.wins }}, {{ stats.losses }}],
+            backgroundColor: ['#30d158', '#ff453a'],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    color: '#ffffff',
+                    font: { size: 14 }
+                }
+            }
+        }
+    }
+});
+
+// Performance Line Chart
+const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+new Chart(performanceCtx, {
+    type: 'line',
+    data: {
+        labels: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5'],
+        datasets: [{
+            label: 'Performance',
+            data: [65, 59, 80, 81, 56],
+            fill: true,
+            backgroundColor: 'rgba(10, 132, 255, 0.2)',
+            borderColor: '#0a84ff',
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                },
+                ticks: {
+                    color: '#a1a1a6'
+                }
+            },
+            x: {
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                },
+                ticks: {
+                    color: '#a1a1a6'
+                }
+            }
+        }
+    }
+});
+</script>
 {% endblock %}

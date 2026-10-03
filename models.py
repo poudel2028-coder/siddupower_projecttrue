@@ -13,15 +13,27 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    sport = Column(String(20), default="basketball")  # basketball, football
 
-    # Lifetime stats
+    # Lifetime stats - Basketball
     total_points = Column(Integer, default=0)
     total_games = Column(Integer, default=0)
     total_wins = Column(Integer, default=0)
     total_losses = Column(Integer, default=0)
     total_free_throws = Column(Integer, default=0)
+    total_free_throws_made = Column(Integer, default=0)
+    total_field_goals = Column(Integer, default=0)
+    total_field_goals_made = Column(Integer, default=0)
+    total_three_pointers = Column(Integer, default=0)
+    total_three_pointers_made = Column(Integer, default=0)
+    total_rebounds = Column(Integer, default=0)
+    total_assists = Column(Integer, default=0)
     total_fouls_committed = Column(Integer, default=0)
     total_fouls_received = Column(Integer, default=0)
+
+    # Lifetime stats - Football
+    total_goals = Column(Integer, default=0)
+    total_saves = Column(Integer, default=0)
 
     # Relationships
     friendships_sent = relationship("Friendship", foreign_keys="Friendship.user_id", back_populates="user")
@@ -38,6 +50,7 @@ class Friendship(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     friend_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), default="pending")  # pending, accepted
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id], back_populates="friendships_sent")
@@ -51,6 +64,7 @@ class Team(Base):
     name = Column(String(100), nullable=False)
     join_code = Column(String(10), unique=True, index=True, nullable=False)
     captain_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    sport = Column(String(20), default="basketball")  # basketball, football
     created_at = Column(DateTime, default=datetime.utcnow)
 
     captain = relationship("User", back_populates="captained_teams")
@@ -78,7 +92,8 @@ class Match(Base):
     team1_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     team2_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     referee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    status = Column(String(20), default="pending")  # pending, active, completed
+    sport = Column(String(20), default="basketball")  # basketball, football
+    status = Column(String(20), default="pending")  # pending_challenge, pending_referee, active, completed
     team1_score = Column(Integer, default=0)
     team2_score = Column(Integer, default=0)
     mvp_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -99,10 +114,24 @@ class MatchEvent(Base):
     id = Column(Integer, primary_key=True, index=True)
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
     player_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    event_type = Column(String(20), nullable=False)  # 2pt, 3pt, ft, foul_given, foul_received
-    target_player_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # for fouls
+    event_type = Column(String(20), nullable=False)  # Basketball: 2pt, 3pt, ft, foul_given, foul_received, rebound, assist
+                                                    # Football: goal, assist, save, foul_given, foul_received
+    target_player_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # for fouls, assists
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     match = relationship("Match", back_populates="events")
     player = relationship("User", foreign_keys=[player_id], back_populates="match_events")
     target_player = relationship("User", foreign_keys=[target_player_id])
+
+
+class RefereeRequest(Base):
+    __tablename__ = "referee_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
+    referee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), default="pending")  # pending, accepted, declined
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    match = relationship("Match")
+    referee = relationship("User")

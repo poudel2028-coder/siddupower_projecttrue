@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from database import init_db, get_db
-from models import User, Friendship, Team, TeamMember, Match, MatchEvent
+from models import User, Friendship, Team, TeamMember, Match, MatchEvent, RefereeRequest
 from datetime import datetime
 from contextlib import asynccontextmanager
 import random
@@ -48,16 +48,61 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     return db.query(User).filter(User.id == user_id).first()
 
 
+def calculate_stats(user: User):
+    """Calculate professional stats for a user"""
+    stats = {
+        "sport": user.sport,
+        "games_played": user.total_games,
+        "wins": user.total_wins,
+        "losses": user.total_losses,
+        "win_rate": 0,
+    }
+
+    if user.total_games > 0:
+        stats["win_rate"] = round((user.total_wins / user.total_games) * 100, 1)
+
+    if user.sport == "basketball":
+        stats.update({
+            "total_points": user.total_points,
+            "points_per_game": round(user.total_points / user.total_games, 1) if user.total_games > 0 else 0,
+            "total_rebounds": user.total_rebounds,
+            "rebounds_per_game": round(user.total_rebounds / user.total_games, 1) if user.total_games > 0 else 0,
+            "total_assists": user.total_assists,
+            "assists_per_game": round(user.total_assists / user.total_games, 1) if user.total_games > 0 else 0,
+            "free_throw_percentage": round((user.total_free_throws_made / user.total_free_throws) * 100, 1) if user.total_free_throws > 0 else 0,
+            "field_goal_percentage": round((user.total_field_goals_made / user.total_field_goals) * 100, 1) if user.total_field_goals > 0 else 0,
+            "three_point_percentage": round((user.total_three_pointers_made / user.total_three_pointers) * 100, 1) if user.total_three_pointers > 0 else 0,
+            "total_fouls": user.total_fouls_committed,
+            "fouls_per_game": round(user.total_fouls_committed / user.total_games, 1) if user.total_games > 0 else 0,
+        })
+    elif user.sport == "football":
+        stats.update({
+            "total_goals": user.total_goals,
+            "goals_per_game": round(user.total_goals / user.total_games, 1) if user.total_games > 0 else 0,
+            "total_assists": user.total_assists,
+            "assists_per_game": round(user.total_assists / user.total_games, 1) if user.total_games > 0 else 0,
+            "total_saves": user.total_saves,
+            "saves_per_game": round(user.total_saves / user.total_games, 1) if user.total_games > 0 else 0,
+            "total_fouls": user.total_fouls_committed,
+            "fouls_per_game": round(user.total_fouls_committed / user.total_games, 1) if user.total_games > 0 else 0,
+        })
+
+    return stats
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
 
+    # Calculate professional stats
+    stats = calculate_stats(current_user)
+
     # Get recent games from friends
     friend_ids = [f.friend_id for f in current_user.friendships_sent]
     friend_ids += [f.user_id for f in current_user.friendships_received]
-    
+
     recent_matches = db.query(Match).filter(
         Match.status == "completed"
     ).order_by(Match.completed_at.desc()).limit(10).all()
@@ -70,6 +115,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": current_user,
+        "stats": stats,
         "recent_matches": recent_matches,
         "user_teams": user_teams
     })
@@ -120,6 +166,7 @@ async def register(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    sport: str = Form("basketball"),
     db: Session = Depends(get_db)
 ):
     try:
@@ -129,13 +176,19 @@ async def register(
                 "request": request,
                 "error": "Username must be at least 3 characters"
             })
-        
+
         if len(password) < 6:
             return templates.TemplateResponse("register.html", {
                 "request": request,
                 "error": "Password must be at least 6 characters"
             })
-        
+
+        if sport not in ["basketball", "football"]:
+            return templates.TemplateResponse("register.html", {
+                "request": request,
+                "error": "Invalid sport selection"
+            })
+
         # Check if user exists
         existing_user = db.query(User).filter(User.username == username).first()
         if existing_user:
@@ -143,16 +196,17 @@ async def register(
                 "request": request,
                 "error": "Username already exists"
             })
-        
+
         # Create user
         user = User(
             username=username,
-            password_hash=get_password_hash(password)
+            password_hash=get_password_hash(password),
+            sport=sport
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        
+
         # Log in user
         request.session["user_id"] = user.id
         return RedirectResponse(url="/", status_code=303)
@@ -176,21 +230,36 @@ async def friends_page(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
 
+    # Get accepted friends
     friends = []
     for friendship in current_user.friendships_sent:
-        friend = db.query(User).filter(User.id == friendship.friend_id).first()
-        if friend:
-            friends.append(friend)
-    
+        if friendship.status == "accepted":
+            friend = db.query(User).filter(User.id == friendship.friend_id).first()
+            if friend:
+                friends.append(friend)
+
     for friendship in current_user.friendships_received:
-        friend = db.query(User).filter(User.id == friendship.user_id).first()
-        if friend:
-            friends.append(friend)
+        if friendship.status == "accepted":
+            friend = db.query(User).filter(User.id == friendship.user_id).first()
+            if friend:
+                friends.append(friend)
+
+    # Get pending friend requests
+    pending_requests = []
+    for friendship in current_user.friendships_received:
+        if friendship.status == "pending":
+            sender = db.query(User).filter(User.id == friendship.user_id).first()
+            if sender:
+                pending_requests.append({
+                    "id": friendship.id,
+                    "username": sender.username
+                })
 
     return templates.TemplateResponse("friends.html", {
         "request": request,
         "user": current_user,
-        "friends": friends
+        "friends": friends,
+        "pending_requests": pending_requests
     })
 
 
@@ -207,7 +276,7 @@ async def add_friend(
     friend = db.query(User).filter(User.username == username).first()
     if not friend:
         return RedirectResponse(url="/friends?error=User not found", status_code=303)
-    
+
     if friend.id == current_user.id:
         return RedirectResponse(url="/friends?error=Cannot add yourself", status_code=303)
 
@@ -215,14 +284,54 @@ async def add_friend(
         ((Friendship.user_id == current_user.id) & (Friendship.friend_id == friend.id)) |
         ((Friendship.user_id == friend.id) & (Friendship.friend_id == current_user.id))
     ).first()
-    
-    if existing:
-        return RedirectResponse(url="/friends?error=Already friends", status_code=303)
 
-    friendship = Friendship(user_id=current_user.id, friend_id=friend.id)
+    if existing:
+        return RedirectResponse(url="/friends?error=Request already sent or already friends", status_code=303)
+
+    friendship = Friendship(user_id=current_user.id, friend_id=friend.id, status="pending")
     db.add(friendship)
     db.commit()
-    
+
+    return RedirectResponse(url="/friends", status_code=303)
+
+
+@app.post("/friends/accept/{request_id}")
+async def accept_friend_request(
+    request: Request,
+    request_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    friendship = db.query(Friendship).filter(Friendship.id == request_id).first()
+    if not friendship or friendship.friend_id != current_user.id:
+        return RedirectResponse(url="/friends?error=Invalid request", status_code=303)
+
+    friendship.status = "accepted"
+    db.commit()
+
+    return RedirectResponse(url="/friends", status_code=303)
+
+
+@app.post("/friends/decline/{request_id}")
+async def decline_friend_request(
+    request: Request,
+    request_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    friendship = db.query(Friendship).filter(Friendship.id == request_id).first()
+    if not friendship or friendship.friend_id != current_user.id:
+        return RedirectResponse(url="/friends?error=Invalid request", status_code=303)
+
+    db.delete(friendship)
+    db.commit()
+
     return RedirectResponse(url="/friends", status_code=303)
 
 
@@ -287,7 +396,8 @@ async def create_team(
     team = Team(
         name=team_name,
         join_code=join_code,
-        captain_id=current_user.id
+        captain_id=current_user.id,
+        sport=current_user.sport
     )
     db.add(team)
     db.commit()
@@ -375,24 +485,37 @@ async def challenge_page(request: Request, db: Session = Depends(get_db)):
     # Get all teams for challenge target
     all_teams = db.query(Team).all()
 
-    # Get friends for referee selection
+    # Get friends
     friends = []
     for friendship in current_user.friendships_sent:
-        friend = db.query(User).filter(User.id == friendship.friend_id).first()
-        if friend:
-            friends.append(friend)
-    
+        if friendship.status == "accepted":
+            friend = db.query(User).filter(User.id == friendship.friend_id).first()
+            if friend:
+                friends.append(friend)
+
     for friendship in current_user.friendships_received:
-        friend = db.query(User).filter(User.id == friendship.user_id).first()
-        if friend:
-            friends.append(friend)
+        if friendship.status == "accepted":
+            friend = db.query(User).filter(User.id == friendship.user_id).first()
+            if friend:
+                friends.append(friend)
+
+    # Get pending challenges (for teams the user is on)
+    user_team_ids = [t.id for t in db.query(Team).join(TeamMember).filter(TeamMember.user_id == current_user.id).all()]
+    pending_challenges = db.query(Match).filter(
+        Match.team2_id.in_(user_team_ids),
+        Match.status == "pending_challenge"
+    ).all()
+
+    # Get all teams for challenge target
+    all_teams = db.query(Team).all()
 
     return templates.TemplateResponse("challenge.html", {
         "request": request,
         "user": current_user,
         "user_teams": user_teams,
         "all_teams": all_teams,
-        "friends": friends
+        "friends": friends,
+        "pending_challenges": pending_challenges
     })
 
 
@@ -411,17 +534,163 @@ async def create_challenge(
     if team1_id == team2_id:
         return RedirectResponse(url="/challenge?error=Cannot challenge your own team", status_code=303)
 
+    team1 = db.query(Team).filter(Team.id == team1_id).first()
+    if not team1:
+        return RedirectResponse(url="/challenge?error=Team not found", status_code=303)
+
     match = Match(
         team1_id=team1_id,
         team2_id=team2_id,
         referee_id=referee_id,
-        status="pending"
+        sport=team1.sport,
+        status="pending_challenge"
     )
     db.add(match)
     db.commit()
     db.refresh(match)
 
-    return RedirectResponse(url=f"/match/{match.id}", status_code=303)
+    # Create referee request
+    referee_request = RefereeRequest(
+        match_id=match.id,
+        referee_id=referee_id,
+        status="pending"
+    )
+    db.add(referee_request)
+    db.commit()
+
+    return RedirectResponse(url="/challenge", status_code=303)
+
+
+@app.post("/challenge/accept/{match_id}")
+async def accept_challenge(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        return RedirectResponse(url="/challenge?error=Match not found", status_code=303)
+
+    # Check if user is on team2
+    user_team_membership = db.query(TeamMember).filter(
+        TeamMember.user_id == current_user.id,
+        TeamMember.team_id == match.team2_id
+    ).first()
+
+    if not user_team_membership:
+        return RedirectResponse(url="/challenge?error=Not authorized", status_code=303)
+
+    match.status = "pending_referee"
+    db.commit()
+
+    return RedirectResponse(url="/challenge", status_code=303)
+
+
+@app.post("/challenge/decline/{match_id}")
+async def decline_challenge(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        return RedirectResponse(url="/challenge?error=Match not found", status_code=303)
+
+    # Check if user is on team2
+    user_team_membership = db.query(TeamMember).filter(
+        TeamMember.user_id == current_user.id,
+        TeamMember.team_id == match.team2_id
+    ).first()
+
+    if not user_team_membership:
+        return RedirectResponse(url="/challenge?error=Not authorized", status_code=303)
+
+    db.delete(match)
+    db.commit()
+
+    return RedirectResponse(url="/challenge", status_code=303)
+
+
+@app.get("/refereeing", response_class=HTMLResponse)
+async def refereeing_page(request: Request, db: Session = Depends(get_db)):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Get pending referee requests
+    pending_requests = db.query(RefereeRequest).filter(
+        RefereeRequest.referee_id == current_user.id,
+        RefereeRequest.status == "pending"
+    ).all()
+
+    # Get active matches the user is refereeing
+    active_matches = db.query(Match).filter(
+        Match.referee_id == current_user.id,
+        Match.status == "active"
+    ).all()
+
+    # Get accepted matches ready to start
+    accepted_matches = db.query(Match).filter(
+        Match.referee_id == current_user.id,
+        Match.status == "pending_referee"
+    ).all()
+
+    return templates.TemplateResponse("refereeing.html", {
+        "request": request,
+        "user": current_user,
+        "pending_requests": pending_requests,
+        "active_matches": active_matches,
+        "accepted_matches": accepted_matches
+    })
+
+
+@app.post("/refereeing/accept/{request_id}")
+async def accept_referee_request(
+    request: Request,
+    request_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    referee_request = db.query(RefereeRequest).filter(RefereeRequest.id == request_id).first()
+    if not referee_request or referee_request.referee_id != current_user.id:
+        return RedirectResponse(url="/refereeing?error=Invalid request", status_code=303)
+
+    referee_request.status = "accepted"
+    referee_request.match.status = "pending_referee"
+    db.commit()
+
+    return RedirectResponse(url="/refereeing", status_code=303)
+
+
+@app.post("/refereeing/decline/{request_id}")
+async def decline_referee_request(
+    request: Request,
+    request_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    referee_request = db.query(RefereeRequest).filter(RefereeRequest.id == request_id).first()
+    if not referee_request or referee_request.referee_id != current_user.id:
+        return RedirectResponse(url="/refereeing?error=Invalid request", status_code=303)
+
+    referee_request.status = "declined"
+    db.commit()
+
+    return RedirectResponse(url="/refereeing", status_code=303)
 
 
 @app.get("/match/{match_id}", response_class=HTMLResponse)
@@ -474,7 +743,7 @@ async def start_match(
 
     match = db.query(Match).filter(Match.id == match_id).first()
     if not match or match.referee_id != current_user.id:
-        return RedirectResponse(url=f"/match/{match_id}?error=Not authorized", status_code=303)
+        return RedirectResponse(url=f"/refereeing?error=Not authorized", status_code=303)
 
     match.status = "active"
     match.started_at = datetime.utcnow()
@@ -544,19 +813,34 @@ async def record_event(
     )
     db.add(event)
 
-    # Update match score
-    if event_type in ["2pt", "3pt", "ft"]:
-        player = db.query(User).filter(User.id == player_id).first()
-        # Determine which team the player is on
-        team_membership = db.query(TeamMember).filter(
-            TeamMember.user_id == player_id
-        ).first()
-        
-        if team_membership:
-            if team_membership.team_id == match.team1_id:
-                match.team1_score += int(event_type[0])
-            elif team_membership.team_id == match.team2_id:
-                match.team2_score += int(event_type[0])
+    # Update match score based on sport and event type
+    if match.sport == "basketball":
+        if event_type in ["2pt", "3pt", "ft"]:
+            player = db.query(User).filter(User.id == player_id).first()
+            team_membership = db.query(TeamMember).filter(
+                TeamMember.user_id == player_id
+            ).first()
+
+            if team_membership:
+                if team_membership.team_id == match.team1_id:
+                    match.team1_score += int(event_type[0])
+                elif team_membership.team_id == match.team2_id:
+                    match.team2_score += int(event_type[0])
+        elif event_type == "block":
+            # Blocks don't affect score
+            pass
+    elif match.sport == "football":
+        if event_type == "goal":
+            player = db.query(User).filter(User.id == player_id).first()
+            team_membership = db.query(TeamMember).filter(
+                TeamMember.user_id == player_id
+            ).first()
+
+            if team_membership:
+                if team_membership.team_id == match.team1_id:
+                    match.team1_score += 1
+                elif team_membership.team_id == match.team2_id:
+                    match.team2_score += 1
 
     db.commit()
 
@@ -626,42 +910,84 @@ async def end_match(
     # Get all events for this match
     events = db.query(MatchEvent).filter(MatchEvent.match_id == match_id).all()
 
-    # Calculate player stats and update profiles
+    # Calculate player stats and update profiles based on sport
     player_stats = {}
     for event in events:
         if event.player_id not in player_stats:
             player_stats[event.player_id] = {
                 "points": 0,
                 "fts": 0,
+                "fts_made": 0,
+                "field_goals": 0,
+                "field_goals_made": 0,
+                "three_pointers": 0,
+                "three_pointers_made": 0,
+                "rebounds": 0,
+                "assists": 0,
+                "goals": 0,
+                "saves": 0,
                 "fouls_given": 0,
                 "fouls_received": 0
             }
-        
-        if event.event_type == "2pt":
-            player_stats[event.player_id]["points"] += 2
-        elif event.event_type == "3pt":
-            player_stats[event.player_id]["points"] += 3
-        elif event.event_type == "ft":
-            player_stats[event.player_id]["points"] += 1
-            player_stats[event.player_id]["fts"] += 1
-        elif event.event_type == "foul_given":
+
+        if match.sport == "basketball":
+            if event.event_type == "2pt":
+                player_stats[event.player_id]["points"] += 2
+                player_stats[event.player_id]["field_goals"] += 1
+                player_stats[event.player_id]["field_goals_made"] += 1
+            elif event.event_type == "3pt":
+                player_stats[event.player_id]["points"] += 3
+                player_stats[event.player_id]["three_pointers"] += 1
+                player_stats[event.player_id]["three_pointers_made"] += 1
+                player_stats[event.player_id]["field_goals"] += 1
+                player_stats[event.player_id]["field_goals_made"] += 1
+            elif event.event_type == "ft":
+                player_stats[event.player_id]["points"] += 1
+                player_stats[event.player_id]["fts"] += 1
+                player_stats[event.player_id]["fts_made"] += 1
+            elif event.event_type == "rebound":
+                player_stats[event.player_id]["rebounds"] += 1
+            elif event.event_type == "assist":
+                player_stats[event.player_id]["assists"] += 1
+            elif event.event_type == "block":
+                player_stats[event.player_id]["rebounds"] += 1
+                player_stats[event.player_id]["points"] += 1
+        elif match.sport == "football":
+            if event.event_type == "goal":
+                player_stats[event.player_id]["goals"] += 1
+                player_stats[event.player_id]["points"] += 1
+            elif event.event_type == "assist":
+                player_stats[event.player_id]["assists"] += 1
+            elif event.event_type == "save":
+                player_stats[event.player_id]["saves"] += 1
+
+        if event.event_type == "foul_given":
             player_stats[event.player_id]["fouls_given"] += 1
             if event.target_player_id:
                 if event.target_player_id not in player_stats:
                     player_stats[event.target_player_id] = {
                         "points": 0,
                         "fts": 0,
+                        "fts_made": 0,
+                        "field_goals": 0,
+                        "field_goals_made": 0,
+                        "three_pointers": 0,
+                        "three_pointers_made": 0,
+                        "rebounds": 0,
+                        "assists": 0,
+                        "goals": 0,
+                        "saves": 0,
                         "fouls_given": 0,
                         "fouls_received": 0
                     }
                 player_stats[event.target_player_id]["fouls_received"] += 1
 
-    # Find MVP (player with most points)
+    # Find MVP (player with most points/goals)
     mvp_id = None
-    max_points = 0
+    max_score = 0
     for player_id, stats in player_stats.items():
-        if stats["points"] > max_points:
-            max_points = stats["points"]
+        if stats["points"] > max_score:
+            max_score = stats["points"]
             mvp_id = player_id
 
     match.mvp_id = mvp_id
@@ -672,6 +998,15 @@ async def end_match(
         if user:
             user.total_points += stats["points"]
             user.total_free_throws += stats["fts"]
+            user.total_free_throws_made += stats["fts_made"]
+            user.total_field_goals += stats["field_goals"]
+            user.total_field_goals_made += stats["field_goals_made"]
+            user.total_three_pointers += stats["three_pointers"]
+            user.total_three_pointers_made += stats["three_pointers_made"]
+            user.total_rebounds += stats["rebounds"]
+            user.total_assists += stats["assists"]
+            user.total_goals += stats["goals"]
+            user.total_saves += stats["saves"]
             user.total_fouls_committed += stats["fouls_given"]
             user.total_fouls_received += stats["fouls_received"]
             user.total_games += 1
@@ -680,12 +1015,12 @@ async def end_match(
     if match.team1_score > match.team2_score:
         team1_members = db.query(TeamMember).filter(TeamMember.team_id == match.team1_id).all()
         team2_members = db.query(TeamMember).filter(TeamMember.team_id == match.team2_id).all()
-        
+
         for member in team1_members:
             user = db.query(User).filter(User.id == member.user_id).first()
             if user:
                 user.total_wins += 1
-        
+
         for member in team2_members:
             user = db.query(User).filter(User.id == member.user_id).first()
             if user:
@@ -693,12 +1028,12 @@ async def end_match(
     else:
         team1_members = db.query(TeamMember).filter(TeamMember.team_id == match.team1_id).all()
         team2_members = db.query(TeamMember).filter(TeamMember.team_id == match.team2_id).all()
-        
+
         for member in team2_members:
             user = db.query(User).filter(User.id == member.user_id).first()
             if user:
                 user.total_wins += 1
-        
+
         for member in team1_members:
             user = db.query(User).filter(User.id == member.user_id).first()
             if user:

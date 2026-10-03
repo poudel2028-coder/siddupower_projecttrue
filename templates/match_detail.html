@@ -8,7 +8,12 @@
         <h2>Match #{{ match.id }}</h2>
         
         <div style="margin-bottom: 1.5rem;">
-            <span class="match-status {{ match.status }}">{{ match.status }}</span>
+            <span class="match-status {{ match.status }}">
+                {% if match.status == "pending_challenge" %}Pending Challenge Acceptance
+                {% elif match.status == "pending_referee" %}Pending Referee Acceptance
+                {% else %}{{ match.status }}
+                {% endif %}
+            </span>
         </div>
 
         <div class="score-display">
@@ -53,10 +58,8 @@
         </div>
         {% endfor %}
 
-        {% if match.status == "pending" and user.id == match.referee_id %}
-        <form method="post" action="/match/{{ match.id }}/start" style="margin-top: 2rem;">
-            <button type="submit" class="btn btn-full btn-success">Start Match</button>
-        </form>
+        {% if match.status == "pending_referee" and user.id == match.referee_id %}
+        <p style="margin-top: 2rem; color: var(--text-secondary);">Please accept this match from your <a href="/refereeing" style="color: var(--accent);">Refereeing</a> tab.</p>
         {% endif %}
 
         {% if match.status == "active" %}
