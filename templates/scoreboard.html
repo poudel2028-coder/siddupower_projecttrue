@@ -1,66 +1,87 @@
-{% extends "base.html" %}
-
-{% block title %}Live Scoreboard - Match #{{ match.id }}{% endblock %}
-
-{% block content %}
-<div class="container">
-    <div class="card">
-        <h2>Live Scoreboard</h2>
-        
-        <div style="margin-bottom: 1.5rem;">
-            <span class="match-status {{ match.status }}">{{ match.status }}</span>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Scoreboard - Match #{{ match.id }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <meta http-equiv="refresh" content="5">
+</head>
+<body style="background: var(--bg-primary); color: var(--text-primary); margin: 0; padding: 2rem;">
+    <div style="max-width: 1200px; margin: 0 auto;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">
+                {% if match.status == "active" %}
+                <span style="color: var(--success);">● LIVE</span>
+                {% else %}
+                <span style="color: var(--text-muted);">● FINAL</span>
+                {% endif %}
+            </h1>
+            <h2 style="font-size: 1.5rem; margin: 0;">{{ team1.name }} vs {{ team2.name }}</h2>
+            <p style="color: var(--text-secondary);">{{ match.sport|capitalize }}</p>
         </div>
 
-        <div class="score-display">
+        <div class="score-display" style="margin: 3rem 0;">
             <div class="team-score">
                 <div class="team-score-name">{{ team1.name }}</div>
-                <div class="team-score-value" id="team1-score">{{ match.team1_score }}</div>
+                <div class="team-score-value">{{ match.team1_score }}</div>
             </div>
             <div class="score-divider">-</div>
             <div class="team-score">
                 <div class="team-score-name">{{ team2.name }}</div>
-                <div class="team-score-value" id="team2-score">{{ match.team2_score }}</div>
+                <div class="team-score-value">{{ match.team2_score }}</div>
             </div>
         </div>
 
-        <div style="text-align: center; color: var(--text-secondary); margin-top: 1rem;">
-            <p>Referee: {{ match.referee_id }}</p>
-            <p style="font-size: 0.85rem;">Updates every 2 seconds</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 3rem;">
+            <div>
+                <h3 style="text-align: center; margin-bottom: 1.5rem;">{{ team1.name }} Stats</h3>
+                {% for member in team1_members %}
+                <div class="list-item">
+                    <div>
+                        <div class="list-item-name">{{ member.username }}</div>
+                        <div class="list-item-meta">
+                            {% if match.sport == "basketball" %}
+                            {{ player_stats.get(member.id, {}).get('points', 0) }} pts • 
+                            {{ player_stats.get(member.id, {}).get('rebounds', 0) }} reb • 
+                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast
+                            {% else %}
+                            {{ player_stats.get(member.id, {}).get('goals', 0) }} goals • 
+                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast • 
+                            {{ player_stats.get(member.id, {}).get('saves', 0) }} saves
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div>
+                <h3 style="text-align: center; margin-bottom: 1.5rem;">{{ team2.name }} Stats</h3>
+                {% for member in team2_members %}
+                <div class="list-item">
+                    <div>
+                        <div class="list-item-name">{{ member.username }}</div>
+                        <div class="list-item-meta">
+                            {% if match.sport == "basketball" %}
+                            {{ player_stats.get(member.id, {}).get('points', 0) }} pts • 
+                            {{ player_stats.get(member.id, {}).get('rebounds', 0) }} reb • 
+                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast
+                            {% else %}
+                            {{ player_stats.get(member.id, {}).get('goals', 0) }} goals • 
+                            {{ player_stats.get(member.id, {}).get('assists', 0) }} ast • 
+                            {{ player_stats.get(member.id, {}).get('saves', 0) }} saves
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
 
-        <a href="/match/{{ match.id }}" class="btn btn-secondary btn-full" style="margin-top: 2rem;">Back to Match Details</a>
+        <p style="text-align: center; color: var(--text-muted); margin-top: 3rem; font-size: 0.85rem;">
+            Auto-refreshing every 5 seconds
+        </p>
     </div>
-</div>
-
-{% block scripts %}
-<script>
-const matchId = {{ match.id }};
-
-function updateScore() {
-    fetch(`/api/match/${matchId}/score`)
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('team1-score').textContent = data.team1_score;
-            document.getElementById('team2-score').textContent = data.team2_score;
-            
-            // Update status badge
-            const statusBadge = document.querySelector('.match-status');
-            statusBadge.textContent = data.status;
-            statusBadge.className = `match-status ${data.status}`;
-            
-            // Stop polling if match is completed
-            if (data.status === 'completed') {
-                clearInterval(scoreInterval);
-            }
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-// Poll for updates every 2 seconds
-const scoreInterval = setInterval(updateScore, 2000);
-
-// Initial update
-updateScore();
-</script>
-{% endblock %}
-{% endblock %}
+</body>
+</html>

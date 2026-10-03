@@ -44,16 +44,53 @@
     </footer>
 
     <script>
-        document.getElementById('burgerMenu').addEventListener('click', function() {
-            document.getElementById('navLinks').classList.toggle('active');
+        const burgerMenu = document.getElementById('burgerMenu');
+        const navLinks = document.getElementById('navLinks');
+
+        burgerMenu.addEventListener('click', function() {
+            navLinks.classList.toggle('active');
+            burgerMenu.classList.toggle('active');
         });
 
         // Close menu when clicking a link
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', () => {
-                document.getElementById('navLinks').classList.remove('active');
+                navLinks.classList.remove('active');
+                burgerMenu.classList.remove('active');
             });
         });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!navLinks.contains(event.target) && !burgerMenu.contains(event.target)) {
+                navLinks.classList.remove('active');
+                burgerMenu.classList.remove('active');
+            }
+        });
+
+        // Prevent swipe gestures from opening menu
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+
+            // Only allow burger button to open menu, not swipe
+            if (Math.abs(diff) > swipeThreshold) {
+                // Prevent default swipe behavior
+                return;
+            }
+        }
     </script>
     {% block scripts %}{% endblock %}
 </body>

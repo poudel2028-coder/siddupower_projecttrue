@@ -88,11 +88,19 @@
             </div>
         </div>
 
+        {% if match.status == "pending_referee" %}
+        <form method="post" action="/match/{{ match.id }}/start" style="margin-top: 2rem;">
+            <button type="submit" class="btn btn-full btn-success">Start Game</button>
+        </form>
+        {% endif %}
+
+        {% if match.status == "active" %}
         <form method="post" action="/match/{{ match.id }}/end" style="margin-top: 2rem;" onsubmit="return confirm('Are you sure you want to end this match? Stats will be finalized.');">
             <button type="submit" class="btn btn-full btn-danger">End Game & Confirm Stats</button>
         </form>
 
         <a href="/match/{{ match.id }}/scoreboard" class="btn btn-secondary btn-full" style="margin-top: 0.5rem;" target="_blank">Open Live Scoreboard</a>
+        {% endif %}
     </div>
 </div>
 

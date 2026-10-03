@@ -538,6 +538,20 @@ async def challenge_page(request: Request, db: Session = Depends(get_db)):
         Match.status == "pending_challenge"
     ).all()
 
+    # Get active matches (games in progress)
+    active_matches = db.query(Match).filter(
+        Match.status == "active"
+    ).all()
+
+    # Add team names to active matches
+    for match in active_matches:
+        team1 = db.query(Team).filter(Team.id == match.team1_id).first()
+        team2 = db.query(Team).filter(Team.id == match.team2_id).first()
+        if team1:
+            match.team1_name = team1.name
+        if team2:
+            match.team2_name = team2.name
+
     # Get all teams for challenge target
     all_teams = db.query(Team).all()
 
@@ -547,7 +561,8 @@ async def challenge_page(request: Request, db: Session = Depends(get_db)):
         "user_teams": user_teams,
         "all_teams": all_teams,
         "friends": friends,
-        "pending_challenges": pending_challenges
+        "pending_challenges": pending_challenges,
+        "active_matches": active_matches
     })
 
 
@@ -1043,6 +1058,9 @@ async def end_match(
             user.total_fouls_received += stats["fouls_received"]
             user.total_games += 1
 
+    # Flush to ensure all changes are written
+    db.flush()
+
     # Update wins/losses
     if match.team1_score > match.team2_score:
         team1_members = db.query(TeamMember).filter(TeamMember.team_id == match.team1_id).all()
@@ -1074,6 +1092,72 @@ async def end_match(
     db.commit()
 
     return RedirectResponse(url=f"/match/{match_id}", status_code=303)
+
+
+@app.get("/match/{match_id}/scoreboard", response_class=HTMLResponse)
+async def match_scoreboard(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        return RedirectResponse(url="/", status_code=303)
+
+    team1 = db.query(Team).filter(Team.id == match.team1_id).first()
+    team2 = db.query(Team).filter(Team.id == match.team2_id).first()
+
+    team1_members = db.query(User).join(TeamMember).filter(
+        TeamMember.team_id == match.team1_id
+    ).all()
+
+    team2_members = db.query(User).join(TeamMember).filter(
+        TeamMember.team_id == match.team2_id
+    ).all()
+
+    # Get live player stats from events
+    player_stats = {}
+    events = db.query(MatchEvent).filter(MatchEvent.match_id == match_id).all()
+
+    for event in events:
+        if event.player_id not in player_stats:
+            player_stats[event.player_id] = {
+                "points": 0,
+                "rebounds": 0,
+                "assists": 0,
+                "goals": 0,
+                "saves": 0,
+                "fouls": 0
+            }
+
+        if event.event_type in ["2pt", "3pt", "ft", "goal"]:
+            if event.event_type == "2pt":
+                player_stats[event.player_id]["points"] += 2
+            elif event.event_type == "3pt":
+                player_stats[event.player_id]["points"] += 3
+            elif event.event_type == "ft":
+                player_stats[event.player_id]["points"] += 1
+            elif event.event_type == "goal":
+                player_stats[event.player_id]["points"] += 1
+                player_stats[event.player_id]["goals"] += 1
+        elif event.event_type == "rebound":
+            player_stats[event.player_id]["rebounds"] += 1
+        elif event.event_type == "assist":
+            player_stats[event.player_id]["assists"] += 1
+        elif event.event_type == "save":
+            player_stats[event.player_id]["saves"] += 1
+        elif event.event_type == "foul_given":
+            player_stats[event.player_id]["fouls"] += 1
+
+    return templates.TemplateResponse("scoreboard.html", {
+        "request": request,
+        "match": match,
+        "team1": team1,
+        "team2": team2,
+        "team1_members": team1_members,
+        "team2_members": team2_members,
+        "player_stats": player_stats
+    })
 
 
 if __name__ == "__main__":
