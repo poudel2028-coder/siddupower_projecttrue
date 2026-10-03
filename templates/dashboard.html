@@ -3,34 +3,30 @@
 {% block title %}Dashboard - Sports Stats{% endblock %}
 
 {% block content %}
-<div class="dashboard-container">
+<div class="container">
     <!-- Welcome Section -->
-    <div class="welcome-card">
-        <h1>Welcome back, {{ user.username }}! 👋</h1>
-        <p class="welcome-subtitle">Sport: {{ stats.sport|capitalize }}</p>
+    <div class="card" style="background: var(--accent-gradient); border: none;">
+        <h1 style="color: white; margin-bottom: 0.5rem;">Welcome back, {{ user.username }}!</h1>
+        <p style="color: rgba(255, 255, 255, 0.8);">Track your {{ stats.sport|capitalize }} journey</p>
     </div>
 
     <!-- Friend Rankings -->
     {% if friend_rankings.total_friends > 0 %}
-    <div class="rankings-card">
+    <div class="card">
         <h3>🏆 Your Rank Among Friends</h3>
-        <div class="rankings-grid">
-            <div class="ranking-item">
-                <div class="ranking-icon">🥇</div>
-                <div class="ranking-info">
-                    <div class="ranking-label">Points</div>
-                    <div class="ranking-value">#{{ friend_rankings.points_rank }} / {{ friend_rankings.total_friends + 1 }}</div>
-                </div>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">#{{ friend_rankings.points_rank }}</div>
+                <div class="stat-label">Points Rank</div>
+                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">of {{ friend_rankings.total_friends + 1 }}</div>
             </div>
-            <div class="ranking-item">
-                <div class="ranking-icon">📊</div>
-                <div class="ranking-info">
-                    <div class="ranking-label">Win Rate</div>
-                    <div class="ranking-value">#{{ friend_rankings.win_rate_rank }} / {{ friend_rankings.total_friends + 1 }}</div>
-                </div>
+            <div class="stat-item">
+                <div class="stat-value">#{{ friend_rankings.win_rate_rank }}</div>
+                <div class="stat-label">Win Rate Rank</div>
+                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">of {{ friend_rankings.total_friends + 1 }}</div>
             </div>
         </div>
-        <a href="/hall-of-fame?filter_type=friends" class="btn btn-secondary btn-full" style="margin-top: 1rem;">View Full Leaderboard</a>
+        <a href="/hall-of-fame?filter_type=friends" class="btn btn-secondary btn-full" style="margin-top: 1.5rem;">View Full Leaderboard</a>
     </div>
     {% endif %}
 
@@ -57,29 +53,69 @@
     <!-- Sport-Specific Stats -->
     {% if stats.sport == "basketball" %}
     <div class="card">
-        <h3>🏀 Basketball Stats</h3>
+        <h3>🏀 Basketball Performance</h3>
         <div class="stats-grid">
             <div class="stat-item">
                 <div class="stat-value">{{ stats.points_per_game }}</div>
-                <div class="stat-label">PPG</div>
+                <div class="stat-label">Points Per Game</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value">{{ stats.assists_per_game }}</div>
-                <div class="stat-label">APG</div>
+                <div class="stat-label">Assists Per Game</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.rebounds_per_game }}</div>
+                <div class="stat-label">Rebounds Per Game</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.fouls_per_game }}</div>
+                <div class="stat-label">Fouls Per Game</div>
             </div>
         </div>
     </div>
+
+    <!-- Shot Heat Map -->
+    <div class="card">
+        <h3>🎯 Shot Heat Map</h3>
+        {% if shot_heatmap %}
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Visual representation of your shot locations from 1v1 matches</p>
+        <div class="heat-map-court" id="heatMapCourt">
+            <img src="/static/images.jpeg" alt="Basketball Court" style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0;">
+            {% for shot in one_pointers %}
+            <div class="heat-dot one" style="left: {{ shot.x }}%; top: {{ shot.y }}%;" title="1-Pointer"></div>
+            {% endfor %}
+            {% for shot in two_pointers %}
+            <div class="heat-dot two" style="left: {{ shot.x }}%; top: {{ shot.y }}%;" title="2-Pointer"></div>
+            {% endfor %}
+            {% for shot in three_pointers %}
+            <div class="heat-dot three" style="left: {{ shot.x }}%; top: {{ shot.y }}%;" title="3-Pointer"></div>
+            {% endfor %}
+        </div>
+        <div class="heat-legend">
+            <div class="legend-item">
+                <div class="legend-dot two"></div>
+                <span>2-Pointer ({{ two_pointers|length }})</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot three"></div>
+                <span>3-Pointer ({{ three_pointers|length }})</span>
+            </div>
+        </div>
+        {% else %}
+        <p style="color: var(--text-secondary);">No shot data available yet. Play some 1v1 matches to track your shot locations!</p>
+        {% endif %}
+    </div>
     {% elif stats.sport == "football" %}
     <div class="card">
-        <h3>⚽ Football Stats</h3>
+        <h3>⚽ Football Performance</h3>
         <div class="stats-grid">
             <div class="stat-item">
                 <div class="stat-value">{{ stats.goals_per_game }}</div>
-                <div class="stat-label">Goals/Game</div>
+                <div class="stat-label">Goals Per Game</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value">{{ stats.assists_per_game }}</div>
-                <div class="stat-label">Assists/Game</div>
+                <div class="stat-label">Assists Per Game</div>
             </div>
         </div>
     </div>
@@ -88,14 +124,14 @@
     <!-- Charts -->
     <div class="charts-container">
         <div class="card">
-            <h3>Win/Loss Ratio</h3>
+            <h3>Win/Loss Distribution</h3>
             <div class="chart-wrapper">
                 <canvas id="winLossChart"></canvas>
             </div>
         </div>
         {% if performance_data %}
         <div class="card">
-            <h3>Recent Performance (Last 10 Matches)</h3>
+            <h3>Performance Trend (Last 10 Matches)</h3>
             <div class="chart-wrapper">
                 <canvas id="performanceChart"></canvas>
             </div>
@@ -111,7 +147,7 @@
         <div class="list-item">
             <div>
                 <div class="list-item-name">{{ team.name }}</div>
-                <div class="list-item-meta">Code: {{ team.join_code }} | Sport: {{ team.sport|capitalize }}</div>
+                <div class="list-item-meta">Code: <span class="team-code-small">{{ team.join_code }}</span> | Sport: {{ team.sport|capitalize }}</div>
             </div>
             <a href="/teams/{{ team.id }}" class="btn btn-sm btn-secondary">View</a>
         </div>
@@ -146,6 +182,20 @@
 
 {% block scripts %}
 <script>
+{% if stats.sport == "basketball" and shot_heatmap %}
+// Add hover effects to heat map dots
+document.querySelectorAll('.heat-dot').forEach(dot => {
+    dot.addEventListener('mouseenter', function() {
+        this.style.transform = 'translate(-50%, -50%) scale(1.5)';
+        this.style.zIndex = '10';
+    });
+    dot.addEventListener('mouseleave', function() {
+        this.style.transform = 'translate(-50%, -50%) scale(1)';
+        this.style.zIndex = '1';
+    });
+});
+{% endif %}
+
 // Win/Loss Pie Chart
 const winLossCtx = document.getElementById('winLossChart').getContext('2d');
 new Chart(winLossCtx, {

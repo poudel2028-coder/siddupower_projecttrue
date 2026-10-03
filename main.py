@@ -3,10 +3,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from passlib.context import CryptContext
 from database import init_db, get_db
-from models import User, Friendship, Team, TeamMember, Match, MatchEvent, RefereeRequest
+from models import (
+    User, Friendship, Team, TeamMember, Match, MatchEvent, RefereeRequest,
+    OneOnOneMatch, OneOnOneEvent
+)
 from datetime import datetime
 from contextlib import asynccontextmanager
 import random
@@ -65,6 +68,8 @@ def calculate_stats(user: User):
         stats.update({
             "points_per_game": round(user.total_points / user.total_games, 1) if user.total_games > 0 else 0,
             "assists_per_game": round(user.total_assists / user.total_games, 1) if user.total_games > 0 else 0,
+            "rebounds_per_game": round(user.total_rebounds / user.total_games, 1) if user.total_games > 0 else 0,
+            "fouls_per_game": round(user.total_fouls_committed / user.total_games, 1) if user.total_games > 0 else 0,
         })
     elif user.sport == "football":
         stats.update({
@@ -73,6 +78,19 @@ def calculate_stats(user: User):
         })
 
     return stats
+
+
+def calculate_shot_heatmap(user: User, db: Session):
+    """Calculate shot location data for heat map visualization"""
+    shot_data = db.query(MatchEvent).filter(
+        MatchEvent.player_id == user.id,
+        MatchEvent.event_type.in_(["2pt", "3pt"]),
+        MatchEvent.shot_x.isnot(None),
+        MatchEvent.shot_y.isnot(None)
+    ).all()
+
+    shots = [{"x": s.shot_x, "y": s.shot_y, "type": s.event_type} for s in shot_data]
+    return shots
 
 
 def calculate_match_performance(user: User, db: Session):
@@ -135,6 +153,43 @@ async def home(request: Request, db: Session = Depends(get_db)):
     # Calculate match performance data
     performance_data = calculate_match_performance(current_user, db)
 
+    # Calculate shot heat map data from both 1v1 and team matches
+    # Get shots from 1v1 matches
+    one_on_one_shots = db.query(OneOnOneEvent).filter(
+        OneOnOneEvent.player_id == current_user.id,
+        OneOnOneEvent.event_type.in_(["1pt", "2pt", "3pt"]),
+        OneOnOneEvent.shot_x.isnot(None),
+        OneOnOneEvent.shot_y.isnot(None)
+    ).all()
+
+    # Get shots from team matches
+    team_shots = db.query(MatchEvent).filter(
+        MatchEvent.player_id == current_user.id,
+        MatchEvent.event_type.in_(["1pt", "2pt", "3pt"]),
+        MatchEvent.shot_x.isnot(None),
+        MatchEvent.shot_y.isnot(None)
+    ).all()
+
+    # Combine all shots
+    all_shots = []
+    for shot in one_on_one_shots:
+        all_shots.append({
+            "x": shot.shot_x,
+            "y": shot.shot_y,
+            "type": shot.event_type
+        })
+    for shot in team_shots:
+        all_shots.append({
+            "x": shot.shot_x,
+            "y": shot.shot_y,
+            "type": shot.event_type
+        })
+
+    one_pointers = [s for s in all_shots if s["type"] == "1pt"]
+    two_pointers = [s for s in all_shots if s["type"] == "2pt"]
+    three_pointers = [s for s in all_shots if s["type"] == "3pt"]
+    shot_heatmap = all_shots
+
     # Get recent games from friends
     friend_ids = [f.friend_id for f in current_user.friendships_sent]
     friend_ids += [f.user_id for f in current_user.friendships_received]
@@ -191,6 +246,10 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "user": current_user,
         "stats": stats,
         "performance_data": performance_data,
+        "shot_heatmap": shot_heatmap,
+        "one_pointers": one_pointers,
+        "two_pointers": two_pointers,
+        "three_pointers": three_pointers,
         "recent_matches": recent_matches,
         "user_teams": user_teams,
         "friend_rankings": friend_rankings
@@ -342,12 +401,83 @@ async def friends_page(request: Request, db: Session = Depends(get_db)):
                     "username": recipient.username
                 })
 
+    # Calculate who was fouled the most by current user
+    fouled_count = {}
+    # From team matches
+    team_fouls = db.query(MatchEvent).filter(
+        MatchEvent.player_id == current_user.id,
+        MatchEvent.event_type == "foul_given",
+        MatchEvent.target_player_id.isnot(None)
+    ).all()
+    for foul in team_fouls:
+        if foul.target_player_id not in fouled_count:
+            fouled_count[foul.target_player_id] = 0
+        fouled_count[foul.target_player_id] += 1
+
+    # From 1v1 matches
+    one_on_one_fouls = db.query(OneOnOneEvent).filter(
+        OneOnOneEvent.player_id == current_user.id,
+        OneOnOneEvent.event_type == "foul_given",
+        OneOnOneEvent.target_player_id.isnot(None)
+    ).all()
+    for foul in one_on_one_fouls:
+        if foul.target_player_id not in fouled_count:
+            fouled_count[foul.target_player_id] = 0
+        fouled_count[foul.target_player_id] += 1
+
+    # Find most fouled player
+    most_fouled_player = None
+    most_fouled_count = 0
+    for player_id, count in fouled_count.items():
+        if count > most_fouled_count:
+            most_fouled_count = count
+            most_fouled_player = db.query(User).filter(User.id == player_id).first()
+
+    # Calculate who received the most assists from current user
+    assist_count = {}
+    # From team matches
+    team_assists = db.query(MatchEvent).filter(
+        MatchEvent.player_id == current_user.id,
+        MatchEvent.event_type == "assist",
+        MatchEvent.target_player_id.isnot(None)
+    ).all()
+    for assist in team_assists:
+        if assist.target_player_id not in assist_count:
+            assist_count[assist.target_player_id] = 0
+        assist_count[assist.target_player_id] += 1
+
+    # From 1v1 matches (target_player_id might not exist in older records)
+    try:
+        one_on_one_assists = db.query(OneOnOneEvent).filter(
+            OneOnOneEvent.player_id == current_user.id,
+            OneOnOneEvent.event_type == "assist",
+            OneOnOneEvent.target_player_id.isnot(None)
+        ).all()
+        for assist in one_on_one_assists:
+            if assist.target_player_id not in assist_count:
+                assist_count[assist.target_player_id] = 0
+            assist_count[assist.target_player_id] += 1
+    except:
+        pass
+
+    # Find most assisted player
+    most_assisted_player = None
+    most_assisted_count = 0
+    for player_id, count in assist_count.items():
+        if count > most_assisted_count:
+            most_assisted_count = count
+            most_assisted_player = db.query(User).filter(User.id == player_id).first()
+
     return templates.TemplateResponse("friends.html", {
         "request": request,
         "user": current_user,
         "friends": friends,
         "pending_requests": pending_requests,
-        "sent_requests": sent_requests
+        "sent_requests": sent_requests,
+        "most_fouled_player": most_fouled_player,
+        "most_fouled_count": most_fouled_count,
+        "most_assisted_player": most_assisted_player,
+        "most_assisted_count": most_assisted_count
     })
 
 
@@ -464,15 +594,29 @@ async def friend_profile(
 
     friend = db.query(User).filter(User.id == user_id).first()
 
-    # Get shot data for heat map
-    shot_data = db.query(MatchEvent).filter(
+    # Get shot data for heat map from both team and 1v1 matches
+    # From team matches
+    team_shots = db.query(MatchEvent).filter(
         MatchEvent.player_id == user_id,
-        MatchEvent.event_type.in_(["2pt", "3pt"]),
+        MatchEvent.event_type.in_(["1pt", "2pt", "3pt"]),
         MatchEvent.shot_x.isnot(None),
         MatchEvent.shot_y.isnot(None)
     ).all()
 
-    shots = [{"x": s.shot_x, "y": s.shot_y, "type": s.event_type} for s in shot_data]
+    # From 1v1 matches
+    one_on_one_shots = db.query(OneOnOneEvent).filter(
+        OneOnOneEvent.player_id == user_id,
+        OneOnOneEvent.event_type.in_(["1pt", "2pt", "3pt"]),
+        OneOnOneEvent.shot_x.isnot(None),
+        OneOnOneEvent.shot_y.isnot(None)
+    ).all()
+
+    # Combine all shots
+    shots = []
+    for shot in team_shots:
+        shots.append({"x": shot.shot_x, "y": shot.shot_y, "type": shot.event_type})
+    for shot in one_on_one_shots:
+        shots.append({"x": shot.shot_x, "y": shot.shot_y, "type": shot.event_type})
 
     return templates.TemplateResponse("friend_profile.html", {
         "request": request,
@@ -983,30 +1127,54 @@ async def referee_dashboard(
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
 
+    # Try to find as team match first
     match = db.query(Match).filter(Match.id == match_id).first()
-    if not match or match.referee_id != current_user.id:
-        return RedirectResponse(url="/", status_code=303)
+    if match and match.referee_id == current_user.id:
+        # Team match
+        team1 = db.query(Team).filter(Team.id == match.team1_id).first()
+        team2 = db.query(Team).filter(Team.id == match.team2_id).first()
 
-    team1 = db.query(Team).filter(Team.id == match.team1_id).first()
-    team2 = db.query(Team).filter(Team.id == match.team2_id).first()
+        team1_members = db.query(User).join(TeamMember).filter(
+            TeamMember.team_id == match.team1_id
+        ).all()
 
-    team1_members = db.query(User).join(TeamMember).filter(
-        TeamMember.team_id == match.team1_id
-    ).all()
+        team2_members = db.query(User).join(TeamMember).filter(
+            TeamMember.team_id == match.team2_id
+        ).all()
 
-    team2_members = db.query(User).join(TeamMember).filter(
-        TeamMember.team_id == match.team2_id
-    ).all()
+        return templates.TemplateResponse("referee.html", {
+            "request": request,
+            "user": current_user,
+            "match": match,
+            "team1": team1,
+            "team2": team2,
+            "team1_members": team1_members,
+            "team2_members": team2_members
+        })
 
-    return templates.TemplateResponse("referee.html", {
-        "request": request,
-        "user": current_user,
-        "match": match,
-        "team1": team1,
-        "team2": team2,
-        "team1_members": team1_members,
-        "team2_members": team2_members
-    })
+    # Try to find as 1v1 match
+    one_on_one_match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).first()
+    if one_on_one_match:
+        # Check if user is authorized (for 1v1, both players can referee)
+        if current_user.id not in [one_on_one_match.player1_id, one_on_one_match.player2_id]:
+            return RedirectResponse(url="/", status_code=303)
+
+        player1 = db.query(User).filter(User.id == one_on_one_match.player1_id).first()
+        player2 = db.query(User).filter(User.id == one_on_one_match.player2_id).first()
+
+        return templates.TemplateResponse("referee.html", {
+            "request": request,
+            "user": current_user,
+            "match": one_on_one_match,
+            "team1": None,
+            "team2": None,
+            "team1_members": [],
+            "team2_members": [],
+            "player1": player1,
+            "player2": player2
+        })
+
+    return RedirectResponse(url="/", status_code=303)
 
 
 @app.post("/referee/event")
@@ -1024,56 +1192,105 @@ async def record_event(
     if not current_user:
         return {"error": "Not authenticated"}
 
+    # Try team match first
     match = db.query(Match).filter(Match.id == match_id).first()
-    if not match or match.referee_id != current_user.id:
-        return {"error": "Not authorized"}
+    if match:
+        if match.referee_id != current_user.id:
+            return {"error": "Not authorized"}
 
-    event = MatchEvent(
-        match_id=match_id,
-        player_id=player_id,
-        event_type=event_type,
-        target_player_id=target_player_id,
-        shot_x=shot_x,
-        shot_y=shot_y
-    )
-    db.add(event)
+        event = MatchEvent(
+            match_id=match_id,
+            player_id=player_id,
+            event_type=event_type,
+            target_player_id=target_player_id,
+            shot_x=shot_x,
+            shot_y=shot_y
+        )
+        db.add(event)
 
-    # Update match score based on sport and event type
-    if match.sport == "basketball":
-        if event_type in ["2pt", "3pt", "ft"]:
-            player = db.query(User).filter(User.id == player_id).first()
-            team_membership = db.query(TeamMember).filter(
-                TeamMember.user_id == player_id
-            ).first()
+        # Update match score based on sport and event type
+        if match.sport == "basketball":
+            if event_type in ["1pt", "2pt", "3pt", "ft"]:
+                points = int(event_type[0]) if event_type != "ft" else 1
+                player = db.query(User).filter(User.id == player_id).first()
+                team_membership = db.query(TeamMember).filter(
+                    TeamMember.user_id == player_id
+                ).first()
 
-            if team_membership:
-                if team_membership.team_id == match.team1_id:
-                    match.team1_score += int(event_type[0])
-                elif team_membership.team_id == match.team2_id:
-                    match.team2_score += int(event_type[0])
-        elif event_type == "block":
-            # Blocks don't affect score
-            pass
-    elif match.sport == "football":
-        if event_type == "goal":
-            player = db.query(User).filter(User.id == player_id).first()
-            team_membership = db.query(TeamMember).filter(
-                TeamMember.user_id == player_id
-            ).first()
+                if team_membership:
+                    if team_membership.team_id == match.team1_id:
+                        match.team1_score += points
+                    elif team_membership.team_id == match.team2_id:
+                        match.team2_score += points
+            elif event_type == "assist":
+                # Assists don't affect score
+                pass
+            elif event_type == "rebound":
+                # Rebounds don't affect score
+                pass
+            elif event_type == "foul_given":
+                # Fouls don't affect score
+                pass
+        elif match.sport == "football":
+            if event_type == "goal":
+                player = db.query(User).filter(User.id == player_id).first()
+                team_membership = db.query(TeamMember).filter(
+                    TeamMember.user_id == player_id
+                ).first()
 
-            if team_membership:
-                if team_membership.team_id == match.team1_id:
-                    match.team1_score += 1
-                elif team_membership.team_id == match.team2_id:
-                    match.team2_score += 1
+                if team_membership:
+                    if team_membership.team_id == match.team1_id:
+                        match.team1_score += 1
+                    elif team_membership.team_id == match.team2_id:
+                        match.team2_score += 1
 
-    db.commit()
+        db.commit()
 
-    return {
-        "success": True,
-        "team1_score": match.team1_score,
-        "team2_score": match.team2_score
-    }
+        return {
+            "success": True,
+            "team1_score": match.team1_score,
+            "team2_score": match.team2_score
+        }
+
+    # Try 1v1 match
+    one_on_one_match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).first()
+    if one_on_one_match:
+        if current_user.id not in [one_on_one_match.player1_id, one_on_one_match.player2_id]:
+            return {"error": "Not authorized"}
+
+        event = OneOnOneEvent(
+            match_id=match_id,
+            player_id=player_id,
+            event_type=event_type,
+            shot_x=shot_x,
+            shot_y=shot_y
+        )
+        db.add(event)
+
+        # Update score based on sport and event type
+        if one_on_one_match.sport == "basketball":
+            if event_type in ["1pt", "2pt", "3pt", "ft"]:
+                points = int(event_type[0]) if event_type != "ft" else 1
+                if player_id == one_on_one_match.player1_id:
+                    one_on_one_match.player1_score += points
+                else:
+                    one_on_one_match.player2_score += points
+        elif one_on_one_match.sport == "football":
+            if event_type == "goal":
+                if player_id == one_on_one_match.player1_id:
+                    one_on_one_match.player1_score += 1
+                else:
+                    one_on_one_match.player2_score += 1
+
+        db.commit()
+
+        return {
+            "success": True,
+            "player1_score": one_on_one_match.player1_score,
+            "player2_score": one_on_one_match.player2_score
+        }
+
+    return {"error": "Match not found"}
 
 
 @app.get("/match/{match_id}/scoreboard", response_class=HTMLResponse)
@@ -1142,22 +1359,76 @@ async def end_match(
             player_stats[event.player_id] = {
                 "points": 0,
                 "assists": 0,
-                "goals": 0
+                "goals": 0,
+                "rebounds": 0,
+                "fouls_committed": 0,
+                "fouls_received": 0,
+                "fouled_players": {},  # Track who this player fouled
+                "assisted_players": {}  # Track who this player assisted
             }
 
         if match.sport == "basketball":
-            if event.event_type == "2pt":
+            if event.event_type == "1pt":
+                player_stats[event.player_id]["points"] += 1
+            elif event.event_type == "2pt":
                 player_stats[event.player_id]["points"] += 2
             elif event.event_type == "3pt":
                 player_stats[event.player_id]["points"] += 3
             elif event.event_type == "assist":
                 player_stats[event.player_id]["assists"] += 1
+                if event.target_player_id:
+                    if event.target_player_id not in player_stats[event.player_id]["assisted_players"]:
+                        player_stats[event.player_id]["assisted_players"][event.target_player_id] = 0
+                    player_stats[event.player_id]["assisted_players"][event.target_player_id] += 1
+            elif event.event_type == "rebound":
+                player_stats[event.player_id]["rebounds"] = player_stats[event.player_id].get("rebounds", 0) + 1
+            elif event.event_type == "foul_given":
+                player_stats[event.player_id]["fouls_committed"] += 1
+                if event.target_player_id:
+                    if event.target_player_id not in player_stats[event.player_id]["fouled_players"]:
+                        player_stats[event.player_id]["fouled_players"][event.target_player_id] = 0
+                    player_stats[event.player_id]["fouled_players"][event.target_player_id] += 1
+                    # Track fouls received for the target
+                    if event.target_player_id not in player_stats:
+                        player_stats[event.target_player_id] = {
+                            "points": 0,
+                            "assists": 0,
+                            "goals": 0,
+                            "rebounds": 0,
+                            "fouls_committed": 0,
+                            "fouls_received": 0,
+                            "fouled_players": {},
+                            "assisted_players": {}
+                        }
+                    player_stats[event.target_player_id]["fouls_received"] += 1
         elif match.sport == "football":
             if event.event_type == "goal":
                 player_stats[event.player_id]["goals"] += 1
                 player_stats[event.player_id]["points"] += 1
             elif event.event_type == "assist":
                 player_stats[event.player_id]["assists"] += 1
+                if event.target_player_id:
+                    if event.target_player_id not in player_stats[event.player_id]["assisted_players"]:
+                        player_stats[event.player_id]["assisted_players"][event.target_player_id] = 0
+                    player_stats[event.player_id]["assisted_players"][event.target_player_id] += 1
+            elif event.event_type == "foul_given":
+                player_stats[event.player_id]["fouls_committed"] += 1
+                if event.target_player_id:
+                    if event.target_player_id not in player_stats[event.player_id]["fouled_players"]:
+                        player_stats[event.player_id]["fouled_players"][event.target_player_id] = 0
+                    player_stats[event.player_id]["fouled_players"][event.target_player_id] += 1
+                    if event.target_player_id not in player_stats:
+                        player_stats[event.target_player_id] = {
+                            "points": 0,
+                            "assists": 0,
+                            "goals": 0,
+                            "rebounds": 0,
+                            "fouls_committed": 0,
+                            "fouls_received": 0,
+                            "fouled_players": {},
+                            "assisted_players": {}
+                        }
+                    player_stats[event.target_player_id]["fouls_received"] += 1
 
     # Find MVP (player with most points/goals)
     mvp_id = None
@@ -1176,6 +1447,9 @@ async def end_match(
             user.total_points += stats["points"]
             user.total_assists += stats["assists"]
             user.total_goals += stats["goals"]
+            user.total_rebounds += stats.get("rebounds", 0)
+            user.total_fouls_committed += stats["fouls_committed"]
+            user.total_fouls_received += stats["fouls_received"]
             user.total_games += 1
 
             # Track 3-pointers made
@@ -1273,6 +1547,459 @@ async def match_scoreboard(
         "team1_members": team1_members,
         "team2_members": team2_members,
         "player_stats": player_stats
+    })
+
+
+# ============ 1v1 Routes ============
+
+@app.get("/1v1", response_class=HTMLResponse)
+async def one_on_one_page(request: Request, db: Session = Depends(get_db)):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Get friendships with eager loading
+    friendships_sent = db.query(Friendship).filter(
+        Friendship.user_id == current_user.id
+    ).options(
+        joinedload(Friendship.friend)
+    ).all()
+
+    friendships_received = db.query(Friendship).filter(
+        Friendship.friend_id == current_user.id
+    ).options(
+        joinedload(Friendship.user)
+    ).all()
+
+    # Get friends
+    friends = []
+    for friendship in friendships_sent:
+        if friendship.status == "accepted" and friendship.friend:
+            friends.append(friendship.friend)
+
+    for friendship in friendships_received:
+        if friendship.status == "accepted" and friendship.user:
+            friends.append(friendship.user)
+
+    # Get pending 1v1 challenges
+    pending_challenges = db.query(OneOnOneMatch).filter(
+        OneOnOneMatch.player2_id == current_user.id,
+        OneOnOneMatch.status == "pending"
+    ).options(
+        joinedload(OneOnOneMatch.player1),
+        joinedload(OneOnOneMatch.player2)
+    ).all()
+
+    # Get active 1v1 matches
+    active_matches = db.query(OneOnOneMatch).filter(
+        OneOnOneMatch.status == "active"
+    ).options(
+        joinedload(OneOnOneMatch.player1),
+        joinedload(OneOnOneMatch.player2)
+    ).all()
+
+    # Get completed 1v1 matches
+    completed_matches = db.query(OneOnOneMatch).filter(
+        OneOnOneMatch.status == "completed"
+    ).options(
+        joinedload(OneOnOneMatch.player1),
+        joinedload(OneOnOneMatch.player2)
+    ).order_by(OneOnOneMatch.completed_at.desc()).limit(10).all()
+
+    return templates.TemplateResponse("one_on_one.html", {
+        "request": request,
+        "user": current_user,
+        "friends": friends,
+        "pending_challenges": pending_challenges,
+        "active_matches": active_matches,
+        "completed_matches": completed_matches
+    })
+
+
+@app.post("/1v1/challenge")
+async def create_one_on_one_challenge(
+    request: Request,
+    opponent_id: int = Form(...),
+    sport: str = Form(...),
+    scoring_type: str = Form("twos"),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    if opponent_id == current_user.id:
+        return RedirectResponse(url="/1v1?error=Cannot challenge yourself", status_code=303)
+
+    opponent = db.query(User).filter(User.id == opponent_id).first()
+    if not opponent:
+        return RedirectResponse(url="/1v1?error=User not found", status_code=303)
+
+    match = OneOnOneMatch(
+        player1_id=current_user.id,
+        player2_id=opponent_id,
+        sport=sport,
+        scoring_type=scoring_type,
+        status="pending"
+    )
+    db.add(match)
+    db.commit()
+
+    return RedirectResponse(url="/1v1", status_code=303)
+
+
+@app.post("/1v1/accept/{match_id}")
+async def accept_one_on_one_challenge(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).first()
+    if not match or match.player2_id != current_user.id:
+        return RedirectResponse(url="/1v1?error=Invalid challenge", status_code=303)
+
+    match.status = "active"
+    match.started_at = datetime.utcnow()
+    db.commit()
+
+    return RedirectResponse(url=f"/referee/{match_id}", status_code=303)
+
+
+@app.post("/1v1/{match_id}/start")
+async def start_one_on_one_match(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).first()
+    if not match:
+        return RedirectResponse(url="/1v1?error=Match not found", status_code=303)
+
+    # Only players in the match can start it
+    if current_user.id not in [match.player1_id, match.player2_id]:
+        return RedirectResponse(url=f"/1v1?error=Not authorized", status_code=303)
+
+    match.status = "active"
+    match.started_at = datetime.utcnow()
+    db.commit()
+
+    return RedirectResponse(url=f"/referee/{match_id}", status_code=303)
+    if not match or match.player2_id != current_user.id:
+        return RedirectResponse(url="/1v1?error=Invalid challenge", status_code=303)
+
+    match.status = "active"
+    match.started_at = datetime.utcnow()
+    db.commit()
+
+    return RedirectResponse(url=f"/1v1/{match_id}/referee", status_code=303)
+
+
+@app.post("/1v1/decline/{match_id}")
+async def decline_one_on_one_challenge(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).first()
+    if not match or match.player2_id != current_user.id:
+        return RedirectResponse(url="/1v1?error=Invalid challenge", status_code=303)
+
+    db.delete(match)
+    db.commit()
+
+    return RedirectResponse(url="/1v1", status_code=303)
+
+
+@app.get("/1v1/{match_id}", response_class=HTMLResponse)
+async def one_on_one_detail(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).options(
+        joinedload(OneOnOneMatch.player1),
+        joinedload(OneOnOneMatch.player2)
+    ).first()
+    if not match:
+        return RedirectResponse(url="/1v1", status_code=303)
+
+    events = db.query(OneOnOneEvent).filter(
+        OneOnOneEvent.match_id == match_id
+    ).options(
+        joinedload(OneOnOneEvent.player)
+    ).order_by(OneOnOneEvent.timestamp).all()
+
+    return templates.TemplateResponse("one_on_one_detail.html", {
+        "request": request,
+        "user": current_user,
+        "match": match,
+        "player1": match.player1,
+        "player2": match.player2,
+        "events": events
+    })
+
+
+@app.get("/1v1/{match_id}/referee", response_class=HTMLResponse)
+async def one_on_one_referee(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    # Redirect to unified referee dashboard
+    return RedirectResponse(url=f"/referee/{match_id}", status_code=303)
+
+
+@app.post("/1v1/event")
+async def record_one_on_one_event(
+    request: Request,
+    match_id: int = Form(...),
+    player_id: int = Form(...),
+    event_type: str = Form(...),
+    target_player_id: int = Form(None),
+    shot_x: int = Form(None),
+    shot_y: int = Form(None),
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return {"error": "Not authenticated"}
+
+    match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).first()
+    if not match:
+        return {"error": "Match not found"}
+
+    # Only players in the match can record events
+    if current_user.id not in [match.player1_id, match.player2_id]:
+        return {"error": "Not authorized"}
+
+    event = OneOnOneEvent(
+        match_id=match_id,
+        player_id=player_id,
+        event_type=event_type,
+        target_player_id=target_player_id,
+        shot_x=shot_x,
+        shot_y=shot_y
+    )
+    db.add(event)
+
+    # Update score based on sport and event type
+    if match.sport == "basketball":
+        if event_type in ["1pt", "2pt", "3pt", "ft"]:
+            points = int(event_type[0]) if event_type != "ft" else 1
+            if player_id == match.player1_id:
+                match.player1_score += points
+            else:
+                match.player2_score += points
+    elif match.sport == "football":
+        if event_type == "goal":
+            if player_id == match.player1_id:
+                match.player1_score += 1
+            else:
+                match.player2_score += 1
+
+    db.commit()
+
+    return {
+        "success": True,
+        "player1_score": match.player1_score,
+        "player2_score": match.player2_score
+    }
+
+
+@app.post("/1v1/{match_id}/end")
+async def end_one_on_one_match(
+    request: Request,
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    match = db.query(OneOnOneMatch).filter(OneOnOneMatch.id == match_id).first()
+    if not match:
+        return RedirectResponse(url="/1v1?error=Match not found", status_code=303)
+
+    # Only players in the match can end it
+    if current_user.id not in [match.player1_id, match.player2_id]:
+        return RedirectResponse(url="/1v1?error=Not authorized", status_code=303)
+
+    match.status = "completed"
+    match.completed_at = datetime.utcnow()
+
+    # Determine winner
+    if match.player1_score > match.player2_score:
+        match.winner_id = match.player1_id
+    elif match.player2_score > match.player1_score:
+        match.winner_id = match.player2_id
+
+    # Get all events for stats calculation
+    events = db.query(OneOnOneEvent).filter(OneOnOneEvent.match_id == match_id).all()
+
+    # Calculate player stats including fouls
+    player1_stats = {
+        "points": 0,
+        "rebounds": 0,
+        "fouls_committed": 0,
+        "fouls_received": 0
+    }
+    player2_stats = {
+        "points": 0,
+        "rebounds": 0,
+        "fouls_committed": 0,
+        "fouls_received": 0
+    }
+
+    for event in events:
+        if event.player_id == match.player1_id:
+            if event.event_type in ["1pt", "2pt", "3pt"]:
+                player1_stats["points"] += int(event.event_type[0])
+            elif event.event_type == "rebound":
+                player1_stats["rebounds"] += 1
+            elif event.event_type == "foul_given":
+                player1_stats["fouls_committed"] += 1
+                player2_stats["fouls_received"] += 1
+        elif event.player_id == match.player2_id:
+            if event.event_type in ["1pt", "2pt", "3pt"]:
+                player2_stats["points"] += int(event.event_type[0])
+            elif event.event_type == "rebound":
+                player2_stats["rebounds"] += 1
+            elif event.event_type == "foul_given":
+                player2_stats["fouls_committed"] += 1
+                player1_stats["fouls_received"] += 1
+
+    # Update player stats
+    player1 = db.query(User).filter(User.id == match.player1_id).first()
+    player2 = db.query(User).filter(User.id == match.player2_id).first()
+
+    if player1:
+        player1.one_on_one_points_scored += match.player1_score
+        player1.one_on_one_points_allowed += match.player2_score
+        player1.total_points += player1_stats["points"]
+        player1.total_rebounds += player1_stats["rebounds"]
+        player1.total_fouls_committed += player1_stats["fouls_committed"]
+        player1.total_fouls_received += player1_stats["fouls_received"]
+        player1.total_games += 1
+        if match.winner_id == match.player1_id:
+            player1.one_on_one_wins += 1
+            player1.total_wins += 1
+        else:
+            player1.one_on_one_losses += 1
+            player1.total_losses += 1
+
+    if player2:
+        player2.one_on_one_points_scored += match.player2_score
+        player2.one_on_one_points_allowed += match.player1_score
+        player2.total_points += player2_stats["points"]
+        player2.total_rebounds += player2_stats["rebounds"]
+        player2.total_fouls_committed += player2_stats["fouls_committed"]
+        player2.total_fouls_received += player2_stats["fouls_received"]
+        player2.total_games += 1
+        if match.winner_id == match.player2_id:
+            player2.one_on_one_wins += 1
+            player2.total_wins += 1
+        else:
+            player2.one_on_one_losses += 1
+            player2.total_losses += 1
+
+    db.commit()
+
+    return RedirectResponse(url=f"/1v1/{match_id}", status_code=303)
+
+
+# ============ Player Stats & Heat Map ============
+
+@app.get("/player/{user_id}/heatmap", response_class=HTMLResponse)
+async def player_heatmap(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    player = db.query(User).filter(User.id == user_id).first()
+    if not player:
+        return RedirectResponse(url="/", status_code=303)
+
+    # Get all shot events from 1v1 matches
+    one_on_one_shots = db.query(OneOnOneEvent).filter(
+        OneOnOneEvent.player_id == user_id,
+        OneOnOneEvent.event_type.in_(["1pt", "2pt", "3pt"]),
+        OneOnOneEvent.shot_x.isnot(None),
+        OneOnOneEvent.shot_y.isnot(None)
+    ).all()
+
+    # Get all shot events from team matches
+    team_shots = db.query(MatchEvent).filter(
+        MatchEvent.player_id == user_id,
+        MatchEvent.event_type.in_(["1pt", "2pt", "3pt"]),
+        MatchEvent.shot_x.isnot(None),
+        MatchEvent.shot_y.isnot(None)
+    ).all()
+
+    # Combine all shots
+    all_shots = []
+    for shot in one_on_one_shots:
+        all_shots.append({
+            "x": shot.shot_x,
+            "y": shot.shot_y,
+            "type": shot.event_type
+        })
+    for shot in team_shots:
+        all_shots.append({
+            "x": shot.shot_x,
+            "y": shot.shot_y,
+            "type": shot.event_type
+        })
+
+    # Calculate shooting zones
+    one_pointers = [s for s in all_shots if s["type"] == "1pt"]
+    two_pointers = [s for s in all_shots if s["type"] == "2pt"]
+    three_pointers = [s for s in all_shots if s["type"] == "3pt"]
+
+    # Calculate shooting percentage by zone
+    zones = {
+        "paint": {"attempts": 0, "made": 0},
+        "midrange": {"attempts": 0, "made": 0},
+        "three_point": {"attempts": 0, "made": 0}
+    }
+
+    for shot in all_shots:
+        x, y = shot["x"], shot["y"]
+        # Simple zone classification
+        if y > 60:  # Paint area
+            zones["paint"]["attempts"] += 1
+        elif y > 30:  # Midrange
+            zones["midrange"]["attempts"] += 1
+        else:  # Three point
+            zones["three_point"]["attempts"] += 1
+
+    return templates.TemplateResponse("player_heatmap.html", {
+        "request": request,
+        "user": current_user,
+        "player": player,
+        "one_pointers": one_pointers,
+        "two_pointers": two_pointers,
+        "three_pointers": three_pointers,
+        "zones": zones
     })
 
 

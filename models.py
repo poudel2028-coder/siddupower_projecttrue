@@ -35,6 +35,12 @@ class User(Base):
     total_goals = Column(Integer, default=0)
     total_saves = Column(Integer, default=0)
 
+    # 1v1 Stats
+    one_on_one_wins = Column(Integer, default=0)
+    one_on_one_losses = Column(Integer, default=0)
+    one_on_one_points_scored = Column(Integer, default=0)
+    one_on_one_points_allowed = Column(Integer, default=0)
+
     # Relationships
     friendships_sent = relationship("Friendship", foreign_keys="Friendship.user_id", back_populates="user")
     friendships_received = relationship("Friendship", foreign_keys="Friendship.friend_id", back_populates="friend")
@@ -93,6 +99,7 @@ class Match(Base):
     team2_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     referee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     sport = Column(String(20), default="basketball")  # basketball, football
+    scoring_type = Column(String(20), default="twos")  # ones, twos (for basketball)
     status = Column(String(20), default="pending")  # pending_challenge, pending_referee, active, completed
     team1_score = Column(Integer, default=0)
     team2_score = Column(Integer, default=0)
@@ -114,9 +121,9 @@ class MatchEvent(Base):
     id = Column(Integer, primary_key=True, index=True)
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
     player_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    event_type = Column(String(20), nullable=False)  # Basketball: 2pt, 3pt, ft, foul_given, foul_received, rebound, assist
+    event_type = Column(String(20), nullable=False)  # Basketball: 1pt, 2pt, 3pt, ft, foul_given, foul_received, rebound, assist
                                                     # Football: goal, assist, save, foul_given, foul_received
-    target_player_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # for fouls, assists
+    target_player_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # for fouls, assists (who received the assist)
     timestamp = Column(DateTime, default=datetime.utcnow)
     shot_x = Column(Integer, nullable=True)  # X coordinate on court (0-100)
     shot_y = Column(Integer, nullable=True)  # Y coordinate on court (0-100)
@@ -137,3 +144,45 @@ class RefereeRequest(Base):
 
     match = relationship("Match")
     referee = relationship("User")
+
+
+class OneOnOneMatch(Base):
+    __tablename__ = "one_on_one_matches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    player1_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    player2_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    sport = Column(String(20), default="basketball")  # basketball, football
+    scoring_type = Column(String(20), default="twos")  # ones, twos (for basketball 1v1)
+    status = Column(String(20), default="pending")  # pending, active, completed
+    player1_score = Column(Integer, default=0)
+    player2_score = Column(Integer, default=0)
+    winner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    player1 = relationship("User", foreign_keys=[player1_id], lazy="joined")
+    player2 = relationship("User", foreign_keys=[player2_id], lazy="joined")
+    winner = relationship("User", foreign_keys=[winner_id])
+    events = relationship("OneOnOneEvent", back_populates="match")
+
+
+class OneOnOneEvent(Base):
+    __tablename__ = "one_on_one_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    match_id = Column(Integer, ForeignKey("one_on_one_matches.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    event_type = Column(String(20), nullable=False)  # Basketball: 1pt, 2pt, 3pt, ft, foul_given, foul_received, rebound, assist
+                                                    # Football: goal, assist, save, foul_given, foul_received
+    target_player_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # for fouls, assists (who received the assist)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    shot_x = Column(Integer, nullable=True)  # X coordinate on court (0-100)
+    shot_y = Column(Integer, nullable=True)  # Y coordinate on court (0-100)
+    is_made = Column(Boolean, nullable=True)  # For free throws: True if made, False if missed
+    foul_type = Column(String(20), nullable=True)  # foul_2ft, foul_3ft
+
+    match = relationship("OneOnOneMatch", back_populates="events")
+    player = relationship("User", foreign_keys=[player_id], lazy="joined")
+    target_player = relationship("User", foreign_keys=[target_player_id])

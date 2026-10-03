@@ -27,6 +27,7 @@
     </div>
 
     <!-- Score Display -->
+    {% if team1 and team2 %}
     <div class="scoreboard">
         <div class="team-card team1">
             <div class="team-name">{{ team1.name }}</div>
@@ -38,23 +39,45 @@
             <div class="team-score" id="team2-score">{{ match.team2_score }}</div>
         </div>
     </div>
+    {% else %}
+    <!-- 1v1 Score Display -->
+    <div class="score-display">
+        <div class="team-score">
+            <div class="team-score-name">{{ player1.username if player1 else 'Player 1' }}</div>
+            <div class="team-score-value" id="player1-score">{{ match.player1_score }}</div>
+        </div>
+        <div class="score-divider">-</div>
+        <div class="team-score">
+            <div class="team-score-name">{{ player2.username if player2 else 'Player 2' }}</div>
+            <div class="team-score-value" id="player2-score">{{ match.player2_score }}</div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Main Control Panel -->
     <div class="control-panel">
         <!-- Player Selection -->
         <div class="player-selector-section">
             <h3>Select Player</h3>
+            {% if team1 and team2 %}
             <div class="team-tabs">
                 <button class="team-tab active" data-team="team1" onclick="switchTeam('team1')">{{ team1.name }}</button>
                 <button class="team-tab" data-team="team2" onclick="switchTeam('team2')">{{ team2.name }}</button>
             </div>
+            {% endif %}
             <select id="player-select" class="player-dropdown">
+                {% if team1 and team2 %}
                 {% for member in team1_members %}
                 <option value="{{ member.id }}" data-team="team1">{{ member.username }}</option>
                 {% endfor %}
                 {% for member in team2_members %}
                 <option value="{{ member.id }}" data-team="team2">{{ member.username }}</option>
                 {% endfor %}
+                {% else %}
+                <!-- 1v1 match -->
+                <option value="{{ player1.id }}">{{ player1.username }}</option>
+                <option value="{{ player2.id }}">{{ player2.username }}</option>
+                {% endif %}
             </select>
         </div>
 
@@ -63,18 +86,7 @@
         <div class="court-section">
             <h3>Court View - Click to Record Shot Location</h3>
             <div class="basketball-court" id="court">
-                <div class="court-half-court">
-                    <div class="court-key"></div>
-                    <div class="court-paint"></div>
-                    <div class="court-hoop"></div>
-                </div>
-                <div class="court-half-court right">
-                    <div class="court-key"></div>
-                    <div class="court-paint"></div>
-                    <div class="court-hoop"></div>
-                </div>
-                <div class="court-center-circle"></div>
-                <div class="court-midline"></div>
+                <img src="/static/images.jpeg" alt="Basketball Court" style="width: 100%; height: 100%; object-fit: contain;">
             </div>
         </div>
         {% elif match.sport == "football" %}
@@ -98,24 +110,24 @@
         <!-- Action Buttons -->
         <div class="action-buttons">
             {% if match.sport == "basketball" %}
-            <button class="action-btn two-pointer" onclick="recordEvent('2pt')">
-                <span class="btn-icon">🏀</span>
-                <span class="btn-text">2 Points</span>
-            </button>
-            <button class="action-btn three-pointer" onclick="recordEvent('3pt')">
-                <span class="btn-icon">🎯</span>
-                <span class="btn-text">3 Points</span>
-            </button>
-            <button class="action-btn assist" onclick="recordEvent('assist')">
+            <button class="action-btn assist" onclick="showAssistModal()">
                 <span class="btn-icon">👟</span>
                 <span class="btn-text">Assist</span>
+            </button>
+            <button class="action-btn rebound" onclick="recordEvent('rebound')">
+                <span class="btn-icon">📊</span>
+                <span class="btn-text">Rebound</span>
+            </button>
+            <button class="action-btn foul" onclick="showFoulModal()">
+                <span class="btn-icon">⚠️</span>
+                <span class="btn-text">Foul</span>
             </button>
             {% elif match.sport == "football" %}
             <button class="action-btn goal" onclick="recordEvent('goal')">
                 <span class="btn-icon">⚽</span>
                 <span class="btn-text">Goal</span>
             </button>
-            <button class="action-btn assist" onclick="recordEvent('assist')">
+            <button class="action-btn assist" onclick="showAssistModal()">
                 <span class="btn-icon">👟</span>
                 <span class="btn-text">Assist</span>
             </button>
@@ -123,12 +135,18 @@
                 <span class="btn-icon">🧤</span>
                 <span class="btn-text">Save</span>
             </button>
+            <button class="action-btn foul" onclick="showFoulModal()">
+                <span class="btn-icon">⚠️</span>
+                <span class="btn-text">Foul</span>
+            </button>
             {% endif %}
         </div>
     </div>
 
     <!-- Game Controls -->
     <div class="game-controls">
+        {% if team1 and team2 %}
+        <!-- Team match controls -->
         {% if match.status == "pending_referee" %}
         <form method="post" action="/match/{{ match.id }}/start">
             <button type="submit" class="game-btn start-game">
@@ -150,12 +168,116 @@
             Open Live Scoreboard
         </a>
         {% endif %}
+        {% else %}
+        <!-- 1v1 match controls -->
+        {% if match.status == "pending" %}
+        <form method="post" action="/1v1/{{ match.id }}/start">
+            <button type="submit" class="game-btn start-game">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Start Game
+            </button>
+        </form>
+        {% endif %}
+
+        {% if match.status == "active" %}
+        <form method="post" action="/1v1/{{ match.id }}/end" onsubmit="return confirm('Are you sure you want to end this match? Stats will be finalized.');">
+            <button type="submit" class="game-btn end-game">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+                End Game & Confirm Stats
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Foul Modal -->
+    <div id="foulModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="card" style="max-width: 500px; margin: 0;">
+            <h3>Record Foul</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                <span id="foulingPlayerName"></span> committed a foul. Who was fouled?
+            </p>
+            <input type="hidden" id="foulingPlayerId" value="">
+            <div class="form-group">
+                <label for="fouledPlayerSelect">Fouled Player</label>
+                <select id="fouledPlayerSelect" class="player-dropdown">
+                    {% if team1 and team2 %}
+                    {% for member in team1_members %}
+                    <option value="{{ member.id }}">{{ member.username }}</option>
+                    {% endfor %}
+                    {% for member in team2_members %}
+                    <option value="{{ member.id }}">{{ member.username }}</option>
+                    {% endfor %}
+                    {% else %}
+                    <!-- 1v1 match -->
+                    <option value="{{ player1.id }}">{{ player1.username }}</option>
+                    <option value="{{ player2.id }}">{{ player2.username }}</option>
+                    {% endif %}
+                </select>
+            </div>
+            <div class="referee-controls">
+                <button class="btn btn-full" onclick="recordFoul()">Record Foul</button>
+                <button class="btn btn-secondary btn-full" onclick="hideFoulModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assist Modal -->
+    <div id="assistModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="card" style="max-width: 500px; margin: 0;">
+            <h3>Record Assist</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                <span id="assistingPlayerName"></span> gave an assist. Who received it?
+            </p>
+            <input type="hidden" id="assistingPlayerId" value="">
+            <div class="form-group">
+                <label for="assistedPlayerSelect">Assisted Player</label>
+                <select id="assistedPlayerSelect" class="player-dropdown">
+                    {% if team1 and team2 %}
+                    {% for member in team1_members %}
+                    <option value="{{ member.id }}">{{ member.username }}</option>
+                    {% endfor %}
+                    {% for member in team2_members %}
+                    <option value="{{ member.id }}">{{ member.username }}</option>
+                    {% endfor %}
+                    {% else %}
+                    <!-- 1v1 match -->
+                    <option value="{{ player1.id }}">{{ player1.username }}</option>
+                    <option value="{{ player2.id }}">{{ player2.username }}</option>
+                    {% endif %}
+                </select>
+            </div>
+            <div class="referee-controls">
+                <button class="btn btn-full" onclick="recordAssist()">Record Assist</button>
+                <button class="btn btn-secondary btn-full" onclick="hideAssistModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shot Type Modal -->
+    <div id="shotTypeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="card" style="max-width: 500px; margin: 0;">
+            <h3>Record Shot</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Select the point value for this shot at location <span id="shotLocationText"></span>
+            </p>
+            <div class="referee-controls">
+                <button id="btn1pt" class="referee-btn ft" onclick="recordShot('1pt')" style="display: none;">1 Point</button>
+                <button class="referee-btn two" onclick="recordShot('2pt')">2 Points</button>
+                <button class="referee-btn three" onclick="recordShot('3pt')">3 Points</button>
+            </div>
+            <div style="margin-top: 1rem;">
+                <button class="btn btn-secondary btn-full" onclick="cancelShot()">Cancel Shot</button>
+            </div>
+        </div>
     </div>
 </div>
 
 {% block scripts %}
 <script>
 const matchId = {{ match.id }};
+const isOneOnOne = {% if team1 and team2 %}false{% else %}true{% endif %};
+const scoringType = "{{ match.scoring_type if match.scoring_type else 'twos' }}";
 let currentTeam = 'team1';
 let shotLocation = null;
 let stopwatchInterval;
@@ -194,6 +316,8 @@ function resetStopwatch() {
 
 // Team switching
 function switchTeam(team) {
+    if (isOneOnOne) return; // No team switching for 1v1
+
     currentTeam = team;
     document.querySelectorAll('.team-tab').forEach(tab => {
         tab.classList.remove('active');
@@ -238,8 +362,8 @@ court.addEventListener('click', (e) => {
     marker.style.top = `${y}%`;
     court.appendChild(marker);
 
-    // Remove marker after 2 seconds
-    setTimeout(() => marker.remove(), 2000);
+    // Show shot type selection modal
+    showShotTypeModal();
 });
 {% elif match.sport == "football" %}
 const field = document.getElementById('field');
@@ -264,13 +388,34 @@ field.addEventListener('click', (e) => {
 // Record event
 function recordEvent(eventType) {
     const playerId = document.getElementById('player-select').value;
+
+    // For assists, show modal to select target player
+    if (eventType === 'assist') {
+        const playerName = document.getElementById('player-select').options[document.getElementById('player-select').selectedIndex].text;
+        document.getElementById('assistingPlayerName').textContent = playerName;
+        document.getElementById('assistingPlayerId').value = playerId;
+        document.getElementById('assistModal').style.display = 'flex';
+        return;
+    }
+
+    // For shots, require court click first
+    if (eventType === '2pt' || eventType === '3pt' || eventType === '1pt') {
+        if (!shotLocation) {
+            alert('Please click on the court first to select shot location!');
+            return;
+        }
+        // Show shot type modal instead of recording directly
+        showShotTypeModal();
+        return;
+    }
+
     const body = new URLSearchParams({
         match_id: matchId,
         player_id: playerId,
         event_type: eventType
     });
 
-    if (shotLocation && (eventType === '2pt' || eventType === '3pt' || eventType === 'goal')) {
+    if (shotLocation && (eventType === '2pt' || eventType === '3pt' || eventType === '1pt' || eventType === 'goal')) {
         body.append('shot_x', shotLocation.x);
         body.append('shot_y', shotLocation.y);
     }
@@ -285,16 +430,188 @@ function recordEvent(eventType) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            document.getElementById('team1-score').textContent = data.team1_score;
-            document.getElementById('team2-score').textContent = data.team2_score;
+            if (data.team1_score !== undefined) {
+                document.getElementById('team1-score').textContent = data.team1_score;
+                document.getElementById('team2-score').textContent = data.team2_score;
+            }
+            if (data.player1_score !== undefined) {
+                document.getElementById('player1-score').textContent = data.player1_score;
+                document.getElementById('player2-score').textContent = data.player2_score;
+            }
             shotLocation = null;
         }
     })
     .catch(error => console.error('Error:', error));
 }
 
-// Initialize with team1 players
-switchTeam('team1');
+// Show shot type modal
+function showShotTypeModal() {
+    if (shotLocation) {
+        document.getElementById('shotLocationText').textContent = `(${shotLocation.x}%, ${shotLocation.y}%)`;
+    }
+    // Show 1pt button only if scoring type is "ones"
+    if (scoringType === 'ones') {
+        document.getElementById('btn1pt').style.display = 'block';
+    } else {
+        document.getElementById('btn1pt').style.display = 'none';
+    }
+    document.getElementById('shotTypeModal').style.display = 'flex';
+}
+
+// Hide shot type modal
+function hideShotTypeModal() {
+    document.getElementById('shotTypeModal').style.display = 'none';
+}
+
+// Record shot with selected type
+function recordShot(shotType) {
+    const playerId = document.getElementById('player-select').value;
+    const body = new URLSearchParams({
+        match_id: matchId,
+        player_id: playerId,
+        event_type: shotType
+    });
+
+    if (shotLocation) {
+        body.append('shot_x', shotLocation.x);
+        body.append('shot_y', shotLocation.y);
+    }
+
+    fetch('/referee/event', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.team1_score !== undefined) {
+                document.getElementById('team1-score').textContent = data.team1_score;
+                document.getElementById('team2-score').textContent = data.team2_score;
+            }
+            if (data.player1_score !== undefined) {
+                document.getElementById('player1-score').textContent = data.player1_score;
+                document.getElementById('player2-score').textContent = data.player2_score;
+            }
+            shotLocation = null;
+            hideShotTypeModal();
+            // Remove marker
+            document.querySelectorAll('.shot-marker').forEach(m => m.remove());
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Cancel shot
+function cancelShot() {
+    shotLocation = null;
+    hideShotTypeModal();
+    // Remove marker
+    document.querySelectorAll('.shot-marker').forEach(m => m.remove());
+}
+
+// Show foul modal
+function showFoulModal() {
+    const playerId = document.getElementById('player-select').value;
+    const playerName = document.getElementById('player-select').options[document.getElementById('player-select').selectedIndex].text;
+
+    document.getElementById('foulingPlayerName').textContent = playerName;
+    document.getElementById('foulingPlayerId').value = playerId;
+    document.getElementById('foulModal').style.display = 'flex';
+}
+
+// Hide foul modal
+function hideFoulModal() {
+    document.getElementById('foulModal').style.display = 'none';
+}
+
+// Record foul
+function recordFoul() {
+    const foulingPlayerId = document.getElementById('foulingPlayerId').value;
+    const fouledPlayerId = document.getElementById('fouledPlayerSelect').value;
+
+    if (foulingPlayerId === fouledPlayerId) {
+        alert('A player cannot foul themselves!');
+        return;
+    }
+
+    const body = new URLSearchParams({
+        match_id: matchId,
+        player_id: foulingPlayerId,
+        event_type: 'foul_given',
+        target_player_id: fouledPlayerId
+    });
+
+    fetch('/referee/event', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            hideFoulModal();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Show assist modal
+function showAssistModal() {
+    const playerId = document.getElementById('player-select').value;
+    const playerName = document.getElementById('player-select').options[document.getElementById('player-select').selectedIndex].text;
+
+    document.getElementById('assistingPlayerName').textContent = playerName;
+    document.getElementById('assistingPlayerId').value = playerId;
+    document.getElementById('assistModal').style.display = 'flex';
+}
+
+// Hide assist modal
+function hideAssistModal() {
+    document.getElementById('assistModal').style.display = 'none';
+}
+
+// Record assist
+function recordAssist() {
+    const assistingPlayerId = document.getElementById('assistingPlayerId').value;
+    const assistedPlayerId = document.getElementById('assistedPlayerSelect').value;
+
+    if (assistingPlayerId === assistedPlayerId) {
+        alert('A player cannot assist themselves!');
+        return;
+    }
+
+    const body = new URLSearchParams({
+        match_id: matchId,
+        player_id: assistingPlayerId,
+        event_type: 'assist',
+        target_player_id: assistedPlayerId
+    });
+
+    fetch('/referee/event', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            hideAssistModal();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Initialize with team1 players (if not 1v1)
+if (!isOneOnOne) {
+    switchTeam('team1');
+}
 </script>
 {% endblock %}
 {% endblock %}

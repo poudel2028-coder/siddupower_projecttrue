@@ -21,6 +21,39 @@
         <div class="error-message">{{ error }}</div>
         {% endif %}
 
+        <!-- Your Stats -->
+        <div style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 12px;">
+            <h3 style="margin-bottom: 1rem;">📊 Your Interaction Stats</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" style="font-size: 1.5rem;">
+                        {% if most_fouled_player %}
+                        {{ most_fouled_player.username }}
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">Most Fouled Player</div>
+                    {% if most_fouled_count > 0 %}
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">{{ most_fouled_count }} fouls</div>
+                    {% endif %}
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="font-size: 1.5rem;">
+                        {% if most_assisted_player %}
+                        {{ most_assisted_player.username }}
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">Most Assisted Player</div>
+                    {% if most_assisted_count > 0 %}
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">{{ most_assisted_count }} assists</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
         {% if pending_requests %}
         <h3>Pending Friend Requests</h3>
         {% for request in pending_requests %}
@@ -64,7 +97,10 @@
                 <div class="list-item-name">{{ friend.username }}</div>
                 <div class="list-item-meta">{{ friend.total_points }} pts • {{ friend.total_wins }}-{{ friend.total_losses }}</div>
             </div>
-            <a href="/friends/{{ friend.id }}" class="btn btn-sm btn-secondary">View Profile</a>
+            <div class="list-item-actions">
+                <a href="/player/{{ friend.id }}/heatmap" class="btn btn-sm">Heat Map</a>
+                <a href="/friends/{{ friend.id }}" class="btn btn-sm btn-secondary">Profile</a>
+            </div>
         </div>
         {% endfor %}
         {% else %}

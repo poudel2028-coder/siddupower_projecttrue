@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}1v1 Match Details - Sports Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Match Details</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">{{ match.sport.capitalize() }} • {{ match.completed_at.strftime('%B %d, %Y at %I:%M %p') if match.completed_at else 'In Progress' }}</p>
+
+        <!-- Final Score -->
+        <div class="score-display">
+            <div class="team-score">
+                <div class="team-score-name">{{ player1.username if player1 else 'Player 1' }}</div>
+                <div class="team-score-value">{{ match.player1_score }}</div>
+                {% if match.winner_id == player1.id %}
+                <div class="mvp-badge" style="margin-top: 1rem;">WINNER</div>
+                {% endif %}
+            </div>
+            <div class="score-divider">-</div>
+            <div class="team-score">
+                <div class="team-score-name">{{ player2.username if player2 else 'Player 2' }}</div>
+                <div class="team-score-value">{{ match.player2_score }}</div>
+                {% if match.winner_id == player2.id %}
+                <div class="mvp-badge" style="margin-top: 1rem;">WINNER</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Match Events Timeline -->
+        {% if events %}
+        <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Match Events</h3>
+        <div style="max-height: 400px; overflow-y: auto;">
+            {% for event in events %}
+            <div class="list-item">
+                <div>
+                    <div class="list-item-name">{{ event.player.username if event.player else 'Unknown' }} - {{ event.event_type }}</div>
+                    <div class="list-item-meta">{{ event.timestamp.strftime('%I:%M %p') }}</div>
+                </div>
+            </div>
+            {% else %}
+            <p style="color: var(--text-secondary); text-align: center; padding: 1rem;">No events recorded</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="margin-top: 2rem;">
+            <a href="/1v1" class="btn btn-secondary">Back to 1v1</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}1v1 Challenges - Sports Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>1v1 Challenges</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Challenge your friends to head-to-head matches</p>
+
+        {% if error %}
+        <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        <!-- Challenge Form -->
+        <form method="post" action="/1v1/challenge" style="margin-bottom: 2rem;">
+            <div class="form-group">
+                <label for="opponent">Challenge Friend</label>
+                <select id="opponent" name="opponent_id" required>
+                    <option value="">Select a friend</option>
+                    {% for friend in friends %}
+                    <option value="{{ friend.id }}">{{ friend.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sport">Sport</label>
+                <select id="sport" name="sport" required onchange="toggleScoringType()">
+                    <option value="basketball">Basketball</option>
+                    <option value="football">Football</option>
+                </select>
+            </div>
+            <div class="form-group" id="scoringTypeGroup">
+                <label for="scoring_type">Scoring Type (Basketball 1v1)</label>
+                <select id="scoring_type" name="scoring_type">
+                    <option value="twos">Twos (2s and 3s)</option>
+                    <option value="ones">Ones (1s, 2s, and 3s)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-full">Send Challenge</button>
+        </form>
+
+        <!-- Pending Challenges -->
+        {% if pending_challenges %}
+        <h3 style="margin-bottom: 1rem;">Pending Challenges</h3>
+        {% for challenge in pending_challenges %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">{{ challenge.player1.username if challenge.player1 else 'Unknown' }} challenges you to {{ challenge.sport }}</div>
+                <div class="list-item-meta">Sent {{ challenge.created_at.strftime('%B %d, %Y') }}</div>
+            </div>
+            <div class="list-item-actions">
+                <form method="post" action="/1v1/accept/{{ challenge.id }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                </form>
+                <form method="post" action="/1v1/decline/{{ challenge.id }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-danger">Decline</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Active Matches -->
+        {% if active_matches %}
+        <h3 style="margin-bottom: 1rem; margin-top: 2rem;">Active Matches</h3>
+        {% for match in active_matches %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">{{ match.player1.username if match.player1 else 'Unknown' }} vs {{ match.player2.username if match.player2 else 'Unknown' }}</div>
+                <div class="list-item-meta">{{ match.sport }} • Score: {{ match.player1_score }} - {{ match.player2_score }}</div>
+            </div>
+            <div class="list-item-actions">
+                <a href="/referee/{{ match.id }}" class="btn btn-sm">Continue</a>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Completed Matches -->
+        {% if completed_matches %}
+        <h3 style="margin-bottom: 1rem; margin-top: 2rem;">Recent Matches</h3>
+        {% for match in completed_matches %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">
+                    {{ match.player1.username if match.player1 else 'Unknown' }} vs {{ match.player2.username if match.player2 else 'Unknown' }}
+                    {% if match.winner_id == user.id %}
+                    <span class="mvp-badge">WIN</span>
+                    {% endif %}
+                </div>
+                <div class="list-item-meta">{{ match.sport }} • Final: {{ match.player1_score }} - {{ match.player2_score }}</div>
+            </div>
+            <div class="list-item-actions">
+                <a href="/1v1/{{ match.id }}" class="btn btn-sm btn-secondary">View</a>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if not friends %}
+        <div style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+            <p>No friends yet. Add friends to start 1v1 challenges!</p>
+            <a href="/friends" class="btn" style="margin-top: 1rem;">Add Friends</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleScoringType() {
+    const sport = document.getElementById('sport').value;
+    const scoringTypeGroup = document.getElementById('scoringTypeGroup');
+    if (sport === 'basketball') {
+        scoringTypeGroup.style.display = 'block';
+    } else {
+        scoringTypeGroup.style.display = 'none';
+    }
+}
+
+// Initialize on page load
+toggleScoringType();
+</script>
+{% endblock %}

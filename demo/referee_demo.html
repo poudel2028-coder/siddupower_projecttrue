@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referee Demo - Sports Stats</title>
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #1c1c1e;
+            --bg-tertiary: #2c2c2e;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1a6;
+            --accent: #0a84ff;
+            --accent-hover: #0056b3;
+            --accent-gradient: linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%);
+            --border: #38383a;
+            --success: #30d158;
+            --error: #ff453a;
+            --warning: #ff9f0a;
+            --glow-accent: rgba(10, 132, 255, 0.3);
+            --glow-success: rgba(48, 209, 88, 0.3);
+            --glow-error: rgba(255, 69, 58, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-primary);
+            background-image: 
+                radial-gradient(ellipse at top, rgba(10, 132, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom, rgba(94, 92, 230, 0.05) 0%, transparent 50%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h1, h2, h3 {
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .team-score {
+            text-align: center;
+        }
+
+        .team-score-name {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .team-score-value {
+            font-size: 4rem;
+            font-weight: 700;
+            line-height: 1;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-divider {
+            font-size: 2rem;
+            color: var(--text-muted);
+        }
+
+        .referee-dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .referee-controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .referee-btn {
+            padding: 2rem;
+            font-size: 1.75rem;
+            font-weight: 800;
+            border-radius: 16px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .referee-btn:active {
+            transform: scale(0.95);
+        }
+
+        .referee-btn.ft {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 12px var(--glow-accent);
+        }
+
+        .referee-btn.ft:hover {
+            box-shadow: 0 6px 24px var(--glow-accent);
+            transform: translateY(-2px);
+        }
+
+        .referee-btn.two {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 4px 12px var(--glow-success);
+        }
+
+        .referee-btn.two:hover {
+            box-shadow: 0 6px 24px var(--glow-success);
+            transform: translateY(-2px);
+        }
+
+        .referee-btn.three {
+            background: var(--warning);
+            color: white;
+            box-shadow: 0 4px 12px rgba(255, 159, 10, 0.3);
+        }
+
+        .referee-btn.three:hover {
+            box-shadow: 0 6px 24px rgba(255, 159, 10, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .referee-btn.foul {
+            background: var(--error);
+            color: white;
+            box-shadow: 0 4px 12px var(--glow-error);
+        }
+
+        .referee-btn.foul:hover {
+            box-shadow: 0 6px 24px var(--glow-error);
+            transform: translateY(-2px);
+        }
+
+        .court-section {
+            margin: 2rem 0;
+        }
+
+        .basketball-court {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, #c4a35a 0%, #8b7355 100%);
+            border-radius: 16px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+            cursor: crosshair;
+            margin: 2rem 0;
+        }
+
+        .court-half-court {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            border-right: 2px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .court-half-court.right {
+            right: 0;
+            border-right: none;
+            border-left: 2px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .court-key {
+            position: absolute;
+            width: 40%;
+            height: 30%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            bottom: 10%;
+        }
+
+        .court-half-court .court-key {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .court-paint {
+            position: absolute;
+            width: 20%;
+            height: 20%;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            bottom: 10%;
+        }
+
+        .court-half-court .court-paint {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .court-hoop {
+            position: absolute;
+            width: 8%;
+            height: 8%;
+            background: var(--accent);
+            border-radius: 50%;
+            bottom: 15%;
+            box-shadow: 0 0 20px var(--glow-accent);
+        }
+
+        .court-half-court .court-hoop {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .court-center-circle {
+            position: absolute;
+            width: 15%;
+            height: 30%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .court-midline {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.5);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .shot-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 0.5s ease-out;
+            pointer-events: none;
+            box-shadow: 0 0 20px var(--glow-accent);
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        #shotTypeSelection {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+        }
+
+        #freeThrowModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.875rem 2rem;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            text-align: center;
+            box-shadow: 0 4px 12px var(--glow-accent);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--glow-accent);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            box-shadow: none;
+        }
+
+        .btn-danger {
+            background: var(--error);
+            box-shadow: 0 4px 12px var(--glow-error);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 6px 20px var(--glow-error);
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        .event-log {
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 2rem;
+        }
+
+        .event-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .event-item:last-child {
+            border-bottom: none;
+        }
+
+        .event-time {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .referee-dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .team-score-value {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🏀 Referee Demo</h1>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">Test referee features without the full app</p>
+
+            <!-- Score Display -->
+            <div class="score-display">
+                <div class="team-score">
+                    <div class="team-score-name">Player 1</div>
+                    <div class="team-score-value" id="player1Score">0</div>
+                </div>
+                <div class="score-divider">-</div>
+                <div class="team-score">
+                    <div class="team-score-name">Player 2</div>
+                    <div class="team-score-value" id="player2Score">0</div>
+                </div>
+            </div>
+
+            <!-- Basketball Court for Shot Tracking -->
+            <div class="court-section">
+                <h3 style="margin-bottom: 1rem;">🎯 Shot Tracking</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Click on the court to record shot location</p>
+                <div class="basketball-court" id="basketballCourt" onclick="handleCourtClick(event)">
+                    <div class="court-half-court">
+                        <div class="court-key"></div>
+                        <div class="court-paint"></div>
+                        <div class="court-hoop"></div>
+                    </div>
+                    <div class="court-half-court right">
+                        <div class="court-key"></div>
+                        <div class="court-paint"></div>
+                        <div class="court-hoop"></div>
+                    </div>
+                    <div class="court-center-circle"></div>
+                    <div class="court-midline"></div>
+                </div>
+            </div>
+
+            <!-- Shot Type Selection -->
+            <div id="shotTypeSelection">
+                <h4 style="margin-bottom: 1rem;">Record Shot for <span id="selectedPlayerName"></span></h4>
+                <input type="hidden" id="shotX" value="">
+                <input type="hidden" id="shotY" value="">
+                <input type="hidden" id="selectedPlayerId" value="">
+                <div class="referee-controls">
+                    <button class="referee-btn two" onclick="recordShot('2pt')">2-Pointer</button>
+                    <button class="referee-btn three" onclick="recordShot('3pt')">3-Pointer</button>
+                    <button class="btn btn-secondary" onclick="cancelShot()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Referee Controls -->
+            <div class="referee-dashboard" style="margin-top: 2rem;">
+                <div>
+                    <h3>Player 1</h3>
+                    <div class="referee-controls">
+                        <button class="referee-btn foul" onclick="handleFoul(1, 'foul_2ft')">Foul (2FT)</button>
+                        <button class="referee-btn foul" onclick="handleFoul(1, 'foul_3ft')">Foul (3FT)</button>
+                    </div>
+                </div>
+                <div>
+                    <h3>Player 2</h3>
+                    <div class="referee-controls">
+                        <button class="referee-btn foul" onclick="handleFoul(2, 'foul_2ft')">Foul (2FT)</button>
+                        <button class="referee-btn foul" onclick="handleFoul(2, 'foul_3ft')">Foul (3FT)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Free Throw Modal -->
+            <div id="freeThrowModal">
+                <div class="card" style="max-width: 400px; margin: 0;">
+                    <h3>Free Throws</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                        <span id="foulPlayerName"></span> was fouled. Record <span id="freeThrowCount"></span> free throws.
+                    </p>
+                    <input type="hidden" id="foulPlayerId" value="">
+                    <input type="hidden" id="foulType" value="">
+                    <input type="hidden" id="freeThrowsTotal" value="">
+                    <input type="hidden" id="freeThrowsMade" value="0">
+                    <div id="freeThrowProgress">
+                        <p style="text-align: center; font-size: 1.5rem; margin-bottom: 1.5rem;">
+                            Free Throw <span id="currentFT">1</span> of <span id="totalFT">2</span>
+                        </p>
+                        <div class="referee-controls">
+                            <button class="referee-btn ft" onclick="recordFreeThrow(true)">MAKE</button>
+                            <button class="referee-btn foul" onclick="recordFreeThrow(false)">MISS</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Log -->
+            <div class="event-log" id="eventLog">
+                <h4 style="margin-bottom: 1rem;">Event Log</h4>
+                <div id="events"></div>
+            </div>
+
+            <!-- Reset Button -->
+            <div style="margin-top: 2rem; text-align: center;">
+                <button class="btn btn-danger btn-full" onclick="resetDemo()">Reset Demo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let player1Score = 0;
+        let player2Score = 0;
+        let selectedPlayerId = null;
+        let selectedPlayerName = null;
+        let shotX = null;
+        let shotY = null;
+        let events = [];
+
+        function handleCourtClick(event) {
+            const court = document.getElementById('basketballCourt');
+            const rect = court.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 100;
+            const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+            shotX = Math.round(x);
+            shotY = Math.round(y);
+
+            // Default to player 1 for demo
+            selectedPlayerId = 1;
+            selectedPlayerName = 'Player 1';
+            document.getElementById('selectedPlayerName').textContent = selectedPlayerName;
+            document.getElementById('shotX').value = shotX;
+            document.getElementById('shotY').value = shotY;
+            document.getElementById('selectedPlayerId').value = selectedPlayerId;
+            document.getElementById('shotTypeSelection').style.display = 'block';
+
+            // Add visual marker
+            const marker = document.createElement('div');
+            marker.className = 'shot-marker';
+            marker.style.left = x + '%';
+            marker.style.top = y + '%';
+            court.appendChild(marker);
+        }
+
+        function recordShot(shotType) {
+            const points = shotType === '2pt' ? 2 : 3;
+            if (selectedPlayerId === 1) {
+                player1Score += points;
+                document.getElementById('player1Score').textContent = player1Score;
+            } else {
+                player2Score += points;
+                document.getElementById('player2Score').textContent = player2Score;
+            }
+
+            addEvent(`${selectedPlayerName} made a ${shotType} (${points} pts) at (${shotX}, ${shotY})`);
+            cancelShot();
+        }
+
+        function cancelShot() {
+            document.getElementById('shotTypeSelection').style.display = 'none';
+            selectedPlayerId = null;
+            selectedPlayerName = null;
+            shotX = null;
+            shotY = null;
+            document.querySelectorAll('.shot-marker').forEach(m => m.remove());
+        }
+
+        function handleFoul(playerId, foulType) {
+            const playerName = playerId === 1 ? 'Player 1' : 'Player 2';
+            const ftCount = foulType === 'foul_2ft' ? 2 : 3;
+
+            document.getElementById('foulPlayerName').textContent = playerName;
+            document.getElementById('freeThrowCount').textContent = ftCount;
+            document.getElementById('foulPlayerId').value = playerId;
+            document.getElementById('foulType').value = foulType;
+            document.getElementById('freeThrowsTotal').value = ftCount;
+            document.getElementById('freeThrowsMade').value = 0;
+            document.getElementById('currentFT').textContent = 1;
+            document.getElementById('totalFT').textContent = ftCount;
+
+            document.getElementById('freeThrowModal').style.display = 'flex';
+        }
+
+        function recordFreeThrow(isMade) {
+            const playerId = parseInt(document.getElementById('foulPlayerId').value);
+            const totalFT = parseInt(document.getElementById('freeThrowsTotal').value);
+            let made = parseInt(document.getElementById('freeThrowsMade').value);
+
+            if (isMade) {
+                made++;
+                document.getElementById('freeThrowsMade').value = made;
+                if (playerId === 1) {
+                    player1Score += 1;
+                    document.getElementById('player1Score').textContent = player1Score;
+                } else {
+                    player2Score += 1;
+                    document.getElementById('player2Score').textContent = player2Score;
+                }
+            }
+
+            const currentFT = made + 1;
+
+            if (currentFT > totalFT) {
+                // All free throws recorded
+                document.getElementById('freeThrowModal').style.display = 'none';
+                const playerName = playerId === 1 ? 'Player 1' : 'Player 2';
+                addEvent(`${playerName} was fouled and made ${made}/${totalFT} free throws`);
+            } else {
+                // Update progress
+                document.getElementById('currentFT').textContent = currentFT;
+            }
+        }
+
+        function addEvent(message) {
+            const now = new Date();
+            const time = now.toLocaleTimeString();
+            events.unshift({ time, message });
+            renderEvents();
+        }
+
+        function renderEvents() {
+            const container = document.getElementById('events');
+            container.innerHTML = events.map(e => `
+                <div class="event-item">
+                    <span class="event-time">${e.time}</span> - ${e.message}
+                </div>
+            `).join('');
+        }
+
+        function resetDemo() {
+            player1Score = 0;
+            player2Score = 0;
+            events = [];
+            document.getElementById('player1Score').textContent = '0';
+            document.getElementById('player2Score').textContent = '0';
+            document.getElementById('events').innerHTML = '';
+            document.querySelectorAll('.shot-marker').forEach(m => m.remove());
+            cancelShot();
+        }
+    </script>
+</body>
+</html>

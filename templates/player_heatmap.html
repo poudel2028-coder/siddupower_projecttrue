@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}{{ player.username }} - Shot Heat Map{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>{{ player.username }}'s Shot Heat Map</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Visual representation of shooting patterns</p>
+
+        <!-- Stats Summary -->
+        <div class="stats-grid" style="margin-bottom: 2rem;">
+            <div class="stat-item">
+                <div class="stat-value">{{ one_pointers|length }}</div>
+                <div class="stat-label">1-Point Attempts</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ two_pointers|length }}</div>
+                <div class="stat-label">2-Point Attempts</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ three_pointers|length }}</div>
+                <div class="stat-label">3-Point Attempts</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ one_pointers|length + two_pointers|length + three_pointers|length }}</div>
+                <div class="stat-label">Total Shots</div>
+            </div>
+        </div>
+
+        <!-- Heat Map Court -->
+        <div class="heat-map-court" id="heatMapCourt">
+            <img src="/static/images.jpeg" alt="Basketball Court" style="width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0;">
+
+            <!-- Shot Markers -->
+            {% for shot in one_pointers %}
+            <div class="heat-dot one" style="left: {{ shot.x }}%; top: {{ shot.y }}%;" title="1-Pointer"></div>
+            {% endfor %}
+            {% for shot in two_pointers %}
+            <div class="heat-dot two" style="left: {{ shot.x }}%; top: {{ shot.y }}%;" title="2-Pointer"></div>
+            {% endfor %}
+            {% for shot in three_pointers %}
+            <div class="heat-dot three" style="left: {{ shot.x }}%; top: {{ shot.y }}%;" title="3-Pointer"></div>
+            {% endfor %}
+        </div>
+
+        <!-- Legend -->
+        <div class="heat-legend" style="margin-top: 1.5rem;">
+            <div class="legend-item">
+                <div class="legend-dot one"></div>
+                <span>1-Pointer</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot two"></div>
+                <span>2-Pointer</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot three"></div>
+                <span>3-Pointer</span>
+            </div>
+        </div>
+
+        <!-- Zone Statistics -->
+        <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Shooting by Zone</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">{{ zones.paint.attempts }}</div>
+                    <div class="stat-label">Paint Attempts</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ zones.midrange.attempts }}</div>
+                    <div class="stat-label">Midrange Attempts</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ zones.three_point.attempts }}</div>
+                    <div class="stat-label">3-Point Attempts</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem;">
+            <a href="/friends" class="btn btn-secondary">Back to Friends</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.heat-map-court {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    background: linear-gradient(135deg, #c4a35a 0%, #8b7355 100%);
+    border-radius: 16px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+    margin: 2rem 0;
+}
+
+.heat-dot {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: pulse 0.5s ease-out;
+}
+
+.heat-dot:hover {
+    transform: translate(-50%, -50%) scale(1.5);
+    z-index: 10;
+}
+
+.heat-dot.two {
+    background: var(--success);
+    box-shadow: 0 0 10px var(--glow-success);
+}
+
+.heat-dot.three {
+    background: var(--warning);
+    box-shadow: 0 0 10px rgba(255, 159, 10, 0.4);
+}
+
+.heat-legend {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+}
+
+.legend-dot.two {
+    background: var(--success);
+}
+
+.legend-dot.three {
+    background: var(--warning);
+}
+
+@keyframes pulse {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+</style>
+{% endblock %}
