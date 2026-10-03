@@ -244,7 +244,7 @@ async def friends_page(request: Request, db: Session = Depends(get_db)):
             if friend:
                 friends.append(friend)
 
-    # Get pending friend requests
+    # Get pending friend requests (incoming)
     pending_requests = []
     for friendship in current_user.friendships_received:
         if friendship.status == "pending":
@@ -255,11 +255,23 @@ async def friends_page(request: Request, db: Session = Depends(get_db)):
                     "username": sender.username
                 })
 
+    # Get sent friend requests (outgoing)
+    sent_requests = []
+    for friendship in current_user.friendships_sent:
+        if friendship.status == "pending":
+            recipient = db.query(User).filter(User.id == friendship.friend_id).first()
+            if recipient:
+                sent_requests.append({
+                    "id": friendship.id,
+                    "username": recipient.username
+                })
+
     return templates.TemplateResponse("friends.html", {
         "request": request,
         "user": current_user,
         "friends": friends,
-        "pending_requests": pending_requests
+        "pending_requests": pending_requests,
+        "sent_requests": sent_requests
     })
 
 
@@ -327,6 +339,26 @@ async def decline_friend_request(
 
     friendship = db.query(Friendship).filter(Friendship.id == request_id).first()
     if not friendship or friendship.friend_id != current_user.id:
+        return RedirectResponse(url="/friends?error=Invalid request", status_code=303)
+
+    db.delete(friendship)
+    db.commit()
+
+    return RedirectResponse(url="/friends", status_code=303)
+
+
+@app.post("/friends/cancel/{request_id}")
+async def cancel_friend_request(
+    request: Request,
+    request_id: int,
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    friendship = db.query(Friendship).filter(Friendship.id == request_id).first()
+    if not friendship or friendship.user_id != current_user.id:
         return RedirectResponse(url="/friends?error=Invalid request", status_code=303)
 
     db.delete(friendship)

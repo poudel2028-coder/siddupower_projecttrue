@@ -41,6 +41,21 @@
         {% endfor %}
         {% endif %}
 
+        {% if sent_requests %}
+        <h3>Sent Friend Requests</h3>
+        {% for request in sent_requests %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">{{ request.username }}</div>
+                <div class="list-item-meta">Request sent - waiting for response</div>
+            </div>
+            <form method="post" action="/friends/cancel/{{ request.id }}" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+
         <h3>Your Friends</h3>
         {% if friends %}
         {% for friend in friends %}
