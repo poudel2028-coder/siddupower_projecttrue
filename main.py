@@ -8,10 +8,18 @@ from passlib.context import CryptContext
 from database import init_db, get_db
 from models import User, Friendship, Team, TeamMember, Match, MatchEvent
 from datetime import datetime
+from contextlib import asynccontextmanager
 import random
 import string
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key-change-this-in-production")
 
@@ -38,11 +46,6 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not user_id:
         return None
     return db.query(User).filter(User.id == user_id).first()
-
-
-@app.on_event("startup")
-def startup_event():
-    init_db()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -84,15 +87,27 @@ async def login(
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.username == username).first()
-    if not user or not verify_password(password, user.password_hash):
+    try:
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            return templates.TemplateResponse("login.html", {
+                "request": request,
+                "error": "User not found"
+            })
+        
+        if not verify_password(password, user.password_hash):
+            return templates.TemplateResponse("login.html", {
+                "request": request,
+                "error": "Invalid password"
+            })
+        
+        request.session["user_id"] = user.id
+        return RedirectResponse(url="/", status_code=303)
+    except Exception as e:
         return templates.TemplateResponse("login.html", {
             "request": request,
-            "error": "Invalid username or password"
+            "error": f"Login failed: {str(e)}"
         })
-    
-    request.session["user_id"] = user.id
-    return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/register", response_class=HTMLResponse)
@@ -107,22 +122,46 @@ async def register(
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    if db.query(User).filter(User.username == username).first():
+    try:
+        # Validate input
+        if len(username) < 3:
+            return templates.TemplateResponse("register.html", {
+                "request": request,
+                "error": "Username must be at least 3 characters"
+            })
+        
+        if len(password) < 6:
+            return templates.TemplateResponse("register.html", {
+                "request": request,
+                "error": "Password must be at least 6 characters"
+            })
+        
+        # Check if user exists
+        existing_user = db.query(User).filter(User.username == username).first()
+        if existing_user:
+            return templates.TemplateResponse("register.html", {
+                "request": request,
+                "error": "Username already exists"
+            })
+        
+        # Create user
+        user = User(
+            username=username,
+            password_hash=get_password_hash(password)
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        # Log in user
+        request.session["user_id"] = user.id
+        return RedirectResponse(url="/", status_code=303)
+    except Exception as e:
+        db.rollback()
         return templates.TemplateResponse("register.html", {
             "request": request,
-            "error": "Username already exists"
+            "error": f"Registration failed: {str(e)}"
         })
-    
-    user = User(
-        username=username,
-        password_hash=get_password_hash(password)
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    request.session["user_id"] = user.id
-    return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/logout")

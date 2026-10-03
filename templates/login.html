@@ -5,23 +5,24 @@
 {% block content %}
 <div class="container">
     <div class="card">
-        <h2>Welcome back</h2>
+        <h2>Welcome Back</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sign in to access your sports stats dashboard</p>
         {% if error %}
         <div class="error-message">{{ error }}</div>
         {% endif %}
         <form method="post" action="/login">
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autofocus>
+                <input type="text" id="username" name="username" required autofocus placeholder="Enter your username">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required placeholder="Enter your password">
             </div>
             <button type="submit" class="btn btn-full">Sign In</button>
         </form>
-        <p style="margin-top: 1.5rem; text-align: center; color: var(--text-secondary);">
-            Don't have an account? <a href="/register" style="color: var(--accent);">Register</a>
+        <p style="margin-top: 2rem; text-align: center; color: var(--text-secondary);">
+            Don't have an account? <a href="/register" style="color: var(--accent); font-weight: 600;">Register</a>
         </p>
     </div>
 </div>
