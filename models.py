@@ -29,7 +29,7 @@ class User(Base):
     team_memberships = relationship("TeamMember", back_populates="user")
     captained_teams = relationship("Team", back_populates="captain")
     referred_matches = relationship("Match", foreign_keys="Match.referee_id", back_populates="referee")
-    match_events = relationship("MatchEvent", back_populates="player")
+    match_events = relationship("MatchEvent", foreign_keys="MatchEvent.player_id", back_populates="player")
 
 
 class Friendship(Base):
