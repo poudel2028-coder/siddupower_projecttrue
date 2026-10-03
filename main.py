@@ -75,6 +75,54 @@ def calculate_stats(user: User):
     return stats
 
 
+def calculate_match_performance(user: User, db: Session):
+    """Calculate performance score (out of 10) for each match"""
+    user_team_ids = [t.team_id for t in db.query(TeamMember).filter(TeamMember.user_id == user.id).all()]
+
+    matches = db.query(Match).filter(
+        (Match.team1_id.in_(user_team_ids)) | (Match.team2_id.in_(user_team_ids)),
+        Match.status == "completed"
+    ).order_by(Match.completed_at.desc()).limit(10).all()
+
+    performance_data = []
+    for match in matches:
+        events = db.query(MatchEvent).filter(
+            MatchEvent.match_id == match.id,
+            MatchEvent.player_id == user.id
+        ).all()
+
+        points = 0
+        assists = 0
+        for event in events:
+            if event.event_type == "2pt":
+                points += 2
+            elif event.event_type == "3pt":
+                points += 3
+            elif event.event_type == "goal":
+                points += 1
+            elif event.event_type == "assist":
+                assists += 1
+
+        # Calculate performance score out of 10
+        if match.sport == "basketball":
+            # Basketball: 30 points + 10 assists = 10 score
+            score = min(10, round((points + assists) / 4, 1))
+        else:
+            # Football: 3 goals + 3 assists = 10 score
+            score = min(10, round((points + assists) * 1.5, 1))
+
+        performance_data.append({
+            "match_id": match.id,
+            "score": score,
+            "points": points,
+            "assists": assists
+        })
+
+    # Reverse to show oldest to newest in chart
+    performance_data.reverse()
+    return performance_data
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
@@ -83,6 +131,9 @@ async def home(request: Request, db: Session = Depends(get_db)):
 
     # Calculate professional stats
     stats = calculate_stats(current_user)
+
+    # Calculate match performance data
+    performance_data = calculate_match_performance(current_user, db)
 
     # Get recent games from friends
     friend_ids = [f.friend_id for f in current_user.friendships_sent]
@@ -101,6 +152,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "user": current_user,
         "stats": stats,
+        "performance_data": performance_data,
         "recent_matches": recent_matches,
         "user_teams": user_teams
     })
