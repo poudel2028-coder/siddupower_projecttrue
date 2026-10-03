@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Dashboard - Match #{{ match.id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Referee Dashboard</h2>
+        
+        <div class="score-display">
+            <div class="team-score">
+                <div class="team-score-name">{{ team1.name }}</div>
+                <div class="team-score-value" id="team1-score">{{ match.team1_score }}</div>
+            </div>
+            <div class="score-divider">-</div>
+            <div class="team-score">
+                <div class="team-score-name">{{ team2.name }}</div>
+                <div class="team-score-value" id="team2-score">{{ match.team2_score }}</div>
+            </div>
+        </div>
+
+        <div class="referee-dashboard">
+            <div>
+                <h3>{{ team1.name }}</h3>
+                <div class="form-group player-select">
+                    <label>Select Player</label>
+                    <select id="team1-player">
+                        {% for member in team1_members %}
+                        <option value="{{ member.id }}">{{ member.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="referee-controls">
+                    <button class="referee-btn ft" onclick="recordEvent('ft', 'team1')">+1 FT</button>
+                    <button class="referee-btn two" onclick="recordEvent('2pt', 'team1')">+2</button>
+                    <button class="referee-btn three" onclick="recordEvent('3pt', 'team1')">+3</button>
+                    <button class="referee-btn foul" onclick="recordFoul('team1')">Foul</button>
+                </div>
+            </div>
+
+            <div>
+                <h3>{{ team2.name }}</h3>
+                <div class="form-group player-select">
+                    <label>Select Player</label>
+                    <select id="team2-player">
+                        {% for member in team2_members %}
+                        <option value="{{ member.id }}">{{ member.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="referee-controls">
+                    <button class="referee-btn ft" onclick="recordEvent('ft', 'team2')">+1 FT</button>
+                    <button class="referee-btn two" onclick="recordEvent('2pt', 'team2')">+2</button>
+                    <button class="referee-btn three" onclick="recordEvent('3pt', 'team2')">+3</button>
+                    <button class="referee-btn foul" onclick="recordFoul('team2')">Foul</button>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" action="/match/{{ match.id }}/end" style="margin-top: 2rem;" onsubmit="return confirm('Are you sure you want to end this match? Stats will be finalized.');">
+            <button type="submit" class="btn btn-full btn-danger">End Game & Confirm Stats</button>
+        </form>
+
+        <a href="/match/{{ match.id }}/scoreboard" class="btn btn-secondary btn-full" style="margin-top: 0.5rem;" target="_blank">Open Live Scoreboard</a>
+    </div>
+</div>
+
+<div id="foul-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 400px; margin: 0;">
+        <h3>Record Foul</h3>
+        <div class="form-group">
+            <label>Player who drew the foul</label>
+            <select id="foul-target">
+                <option value="">Select player</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-full" onclick="submitFoul()">Confirm Foul</button>
+            <button class="btn btn-secondary btn-full" onclick="closeFoulModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+const matchId = {{ match.id }};
+let currentTeam = '';
+let currentPlayerId = '';
+
+function recordEvent(eventType, team) {
+    const playerSelect = document.getElementById(`${team}-player`);
+    const playerId = playerSelect.value;
+    
+    fetch('/referee/event', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `match_id=${matchId}&player_id=${playerId}&event_type=${eventType}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('team1-score').textContent = data.team1_score;
+            document.getElementById('team2-score').textContent = data.team2_score;
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function recordFoul(team) {
+    currentTeam = team;
+    const playerSelect = document.getElementById(`${team}-player`);
+    currentPlayerId = playerSelect.value;
+    
+    // Populate target player dropdown with all players from both teams
+    const targetSelect = document.getElementById('foul-target');
+    targetSelect.innerHTML = '<option value="">Select player who drew the foul</option>';
+    
+    const team1Players = document.getElementById('team1-player').options;
+    const team2Players = document.getElementById('team2-player').options;
+    
+    for (let i = 0; i < team1Players.length; i++) {
+        const option = document.createElement('option');
+        option.value = team1Players[i].value;
+        option.textContent = team1Players[i].textContent;
+        targetSelect.appendChild(option);
+    }
+    
+    for (let i = 0; i < team2Players.length; i++) {
+        const option = document.createElement('option');
+        option.value = team2Players[i].value;
+        option.textContent = team2Players[i].textContent;
+        targetSelect.appendChild(option);
+    }
+    
+    document.getElementById('foul-modal').style.display = 'flex';
+}
+
+function closeFoulModal() {
+    document.getElementById('foul-modal').style.display = 'none';
+    document.getElementById('foul-target').value = '';
+}
+
+function submitFoul() {
+    const targetPlayerId = document.getElementById('foul-target').value;
+    
+    if (!targetPlayerId) {
+        alert('Please select a player who drew the foul');
+        return;
+    }
+    
+    fetch('/referee/event', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `match_id=${matchId}&player_id=${currentPlayerId}&event_type=foul_given&target_player_id=${targetPlayerId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeFoulModal();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+{% endblock %}
+{% endblock %}

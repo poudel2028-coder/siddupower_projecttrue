@@ -1,0 +1,441 @@
+:root {
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #2a2a2a;
+    --text-primary: #f5f5f7;
+    --text-secondary: #86868b;
+    --text-muted: #6e6e73;
+    --accent: #1d9bf0;
+    --accent-hover: #1a8cd8;
+    --border: #333333;
+    --success: #34c759;
+    --error: #ff3b30;
+    --warning: #ff9500;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.navbar {
+    background-color: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-logo {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    letter-spacing: -0.5px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.nav-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: var(--text-primary);
+}
+
+.nav-logout {
+    color: var(--error);
+}
+
+.main-content {
+    flex: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    width: 100%;
+}
+
+.footer {
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.card {
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+}
+
+.card h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    letter-spacing: -0.5px;
+}
+
+.card h3 {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-item {
+    background-color: var(--bg-tertiary);
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.btn {
+    display: inline-block;
+    padding: 0.875rem 2rem;
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+    text-align: center;
+}
+
+.btn:hover {
+    background-color: var(--accent-hover);
+}
+
+.btn-secondary {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background-color: var(--border);
+}
+
+.btn-success {
+    background-color: var(--success);
+}
+
+.btn-success:hover {
+    background-color: #2da84e;
+}
+
+.btn-danger {
+    background-color: var(--error);
+}
+
+.btn-danger:hover {
+    background-color: #d6332a;
+}
+
+.btn-full {
+    width: 100%;
+}
+
+.error-message {
+    background-color: rgba(255, 59, 48, 0.1);
+    border: 1px solid var(--error);
+    color: var(--error);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.success-message {
+    background-color: rgba(52, 199, 89, 0.1);
+    border: 1px solid var(--success);
+    color: var(--success);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.list-item {
+    background-color: var(--bg-tertiary);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-item-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.list-item-meta {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.list-item-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+.team-code {
+    font-family: "SF Mono", Monaco, "Courier New", monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 1rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.match-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.match-status.pending {
+    background-color: rgba(255, 149, 0, 0.2);
+    color: var(--warning);
+}
+
+.match-status.active {
+    background-color: rgba(29, 155, 240, 0.2);
+    color: var(--accent);
+}
+
+.match-status.completed {
+    background-color: rgba(52, 199, 89, 0.2);
+    color: var(--success);
+}
+
+.score-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    margin: 2rem 0;
+}
+
+.team-score {
+    text-align: center;
+}
+
+.team-score-name {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.team-score-value {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.score-divider {
+    font-size: 2rem;
+    color: var(--text-muted);
+}
+
+.referee-dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+@media (max-width: 768px) {
+    .nav-container {
+        padding: 1rem;
+    }
+    
+    .nav-links {
+        gap: 1rem;
+    }
+    
+    .nav-link {
+        font-size: 0.85rem;
+    }
+    
+    .main-content {
+        padding: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .referee-dashboard {
+        grid-template-columns: 1fr;
+    }
+    
+    .score-display {
+        gap: 1rem;
+    }
+    
+    .team-score-value {
+        font-size: 3rem;
+    }
+}
+
+.referee-controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.referee-btn {
+    padding: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s ease, background-color 0.2s ease;
+}
+
+.referee-btn:active {
+    transform: scale(0.95);
+}
+
+.referee-btn.ft {
+    background-color: var(--accent);
+    color: white;
+}
+
+.referee-btn.two {
+    background-color: var(--success);
+    color: white;
+}
+
+.referee-btn.three {
+    background-color: var(--warning);
+    color: white;
+}
+
+.referee-btn.foul {
+    background-color: var(--error);
+    color: white;
+}
+
+.player-select {
+    margin-top: 1rem;
+}
+
+.mvp-badge {
+    display: inline-block;
+    background-color: var(--warning);
+    color: var(--bg-primary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 0.5rem;
+}

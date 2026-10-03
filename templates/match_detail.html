@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Match #{{ match.id }} - Sports Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Match #{{ match.id }}</h2>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <span class="match-status {{ match.status }}">{{ match.status }}</span>
+        </div>
+
+        <div class="score-display">
+            <div class="team-score">
+                <div class="team-score-name">{{ team1.name }}</div>
+                <div class="team-score-value">{{ match.team1_score }}</div>
+            </div>
+            <div class="score-divider">-</div>
+            <div class="team-score">
+                <div class="team-score-name">{{ team2.name }}</div>
+                <div class="team-score-value">{{ match.team2_score }}</div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+            <p>Referee: {{ referee.username }}</p>
+            {% if match.completed_at %}
+            <p>Completed: {{ match.completed_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
+            {% endif %}
+            {% if match.mvp_id %}
+            <p>MVP: 
+                {% for member in team1_members + team2_members %}
+                {% if member.id == match.mvp_id %}
+                {{ member.username }} <span class="mvp-badge">MVP</span>
+                {% endif %}
+                {% endfor %}
+            </p>
+            {% endif %}
+        </div>
+
+        <h3>Team 1 Roster</h3>
+        {% for member in team1_members %}
+        <div class="list-item">
+            <div class="list-item-name">{{ member.username }}</div>
+        </div>
+        {% endfor %}
+
+        <h3 style="margin-top: 1.5rem;">Team 2 Roster</h3>
+        {% for member in team2_members %}
+        <div class="list-item">
+            <div class="list-item-name">{{ member.username }}</div>
+        </div>
+        {% endfor %}
+
+        {% if match.status == "pending" and user.id == match.referee_id %}
+        <form method="post" action="/match/{{ match.id }}/start" style="margin-top: 2rem;">
+            <button type="submit" class="btn btn-full btn-success">Start Match</button>
+        </form>
+        {% endif %}
+
+        {% if match.status == "active" %}
+        <div style="margin-top: 2rem;">
+            <a href="/match/{{ match.id }}/scoreboard" class="btn btn-full">View Live Scoreboard</a>
+            {% if user.id == match.referee_id %}
+            <a href="/referee/{{ match.id }}" class="btn btn-full btn-secondary" style="margin-top: 0.5rem;">Open Referee Dashboard</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <a href="/" class="btn btn-secondary btn-full" style="margin-top: 1.5rem;">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

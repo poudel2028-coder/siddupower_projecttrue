@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ team.name }} - Sports Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>{{ team.name }}</h2>
+        
+        <div class="team-code">{{ team.join_code }}</div>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">{{ team_points }}</div>
+                <div class="stat-label">Team Points</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ team_wins }}</div>
+                <div class="stat-label">Wins</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ team_losses }}</div>
+                <div class="stat-label">Losses</div>
+            </div>
+        </div>
+
+        <h3>Roster</h3>
+        {% for member in members %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">{{ member.username }}</div>
+                <div class="list-item-meta">{{ member.total_points }} pts • {{ member.total_wins }}-{{ member.total_losses }}</div>
+            </div>
+            {% if member.id == team.captain_id %}
+            <span style="color: var(--accent); font-size: 0.85rem;">Captain</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <a href="/teams" class="btn btn-secondary btn-full" style="margin-top: 1.5rem;">Back to Teams</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Friends - Sports Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Friends</h2>
+        
+        <form method="post" action="/friends/add" style="margin-bottom: 2rem;">
+            <div class="form-group">
+                <label for="username">Add friend by username</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="username" name="username" placeholder="Enter username" required>
+                    <button type="submit" class="btn">Add</button>
+                </div>
+            </div>
+        </form>
+
+        {% if error %}
+        <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        <h3>Your Friends</h3>
+        {% if friends %}
+        {% for friend in friends %}
+        <div class="list-item">
+            <div>
+                <div class="list-item-name">{{ friend.username }}</div>
+                <div class="list-item-meta">{{ friend.total_points }} pts • {{ friend.total_wins }}-{{ friend.total_losses }}</div>
+            </div>
+            <a href="/friends/{{ friend.id }}" class="btn btn-sm btn-secondary">View Profile</a>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color: var(--text-secondary);">No friends yet. Add some to see their stats!</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sports Stats{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">Stats</a>
+            <div class="nav-links">
+                {% if user %}
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/friends" class="nav-link">Friends</a>
+                <a href="/teams" class="nav-link">Teams</a>
+                <a href="/challenge" class="nav-link">Challenge</a>
+                <a href="/logout" class="nav-link nav-logout">Logout</a>
+                {% else %}
+                <a href="/login" class="nav-link">Login</a>
+                <a href="/register" class="nav-link">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>Built for friends who love sports</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

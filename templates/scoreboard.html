@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Live Scoreboard - Match #{{ match.id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Live Scoreboard</h2>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <span class="match-status {{ match.status }}">{{ match.status }}</span>
+        </div>
+
+        <div class="score-display">
+            <div class="team-score">
+                <div class="team-score-name">{{ team1.name }}</div>
+                <div class="team-score-value" id="team1-score">{{ match.team1_score }}</div>
+            </div>
+            <div class="score-divider">-</div>
+            <div class="team-score">
+                <div class="team-score-name">{{ team2.name }}</div>
+                <div class="team-score-value" id="team2-score">{{ match.team2_score }}</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; color: var(--text-secondary); margin-top: 1rem;">
+            <p>Referee: {{ match.referee_id }}</p>
+            <p style="font-size: 0.85rem;">Updates every 2 seconds</p>
+        </div>
+
+        <a href="/match/{{ match.id }}" class="btn btn-secondary btn-full" style="margin-top: 2rem;">Back to Match Details</a>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+const matchId = {{ match.id }};
+
+function updateScore() {
+    fetch(`/api/match/${matchId}/score`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('team1-score').textContent = data.team1_score;
+            document.getElementById('team2-score').textContent = data.team2_score;
+            
+            // Update status badge
+            const statusBadge = document.querySelector('.match-status');
+            statusBadge.textContent = data.status;
+            statusBadge.className = `match-status ${data.status}`;
+            
+            // Stop polling if match is completed
+            if (data.status === 'completed') {
+                clearInterval(scoreInterval);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Poll for updates every 2 seconds
+const scoreInterval = setInterval(updateScore, 2000);
+
+// Initial update
+updateScore();
+</script>
+{% endblock %}
+{% endblock %}

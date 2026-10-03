@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Challenge - Sports Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <h2>Challenge a Team</h2>
+        
+        {% if error %}
+        <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/challenge/create">
+            <div class="form-group">
+                <label for="team1_id">Your Team (must be captain)</label>
+                <select id="team1_id" name="team1_id" required>
+                    <option value="">Select your team</option>
+                    {% for team in user_teams %}
+                    <option value="{{ team.id }}">{{ team.name }} ({{ team.join_code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="team2_id">Opponent Team</label>
+                <select id="team2_id" name="team2_id" required>
+                    <option value="">Select opponent</option>
+                    {% for team in all_teams %}
+                    {% if team.id not in user_teams|map(attribute='id')|list %}
+                    <option value="{{ team.id }}">{{ team.name }} ({{ team.join_code }})</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="referee_id">Referee (must be a friend)</label>
+                <select id="referee_id" name="referee_id" required>
+                    <option value="">Select referee</option>
+                    {% for friend in friends %}
+                    <option value="{{ friend.id }}">{{ friend.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-full">Send Challenge</button>
+        </form>
+
+        <p style="margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+            The referee will need to accept and start the match from their dashboard.
+        </p>
+    </div>
+</div>
+{% endblock %}
