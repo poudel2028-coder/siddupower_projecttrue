@@ -3,38 +3,91 @@
 {% block title %}{{ friend.username }} - Sports Stats{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="profile-container">
+    <div class="profile-header">
+        <h1>{{ friend.username }}</h1>
+        <span class="sport-badge">{{ friend.sport|capitalize }}</span>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-value">{{ friend.total_points }}</div>
+            <div class="stat-label">Total Points</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ friend.total_games }}</div>
+            <div class="stat-label">Games</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ friend.total_wins }}</div>
+            <div class="stat-label">Wins</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ friend.total_losses }}</div>
+            <div class="stat-label">Losses</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ (friend.total_wins / friend.total_games * 100 if friend.total_games > 0 else 0)|round(1) }}%</div>
+            <div class="stat-label">Win Rate</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ friend.total_three_pointers_made }}</div>
+            <div class="stat-label">3-Pointers</div>
+        </div>
+    </div>
+
+    {% if friend.sport == "basketball" and shots %}
     <div class="card">
-        <h2>{{ friend.username }}</h2>
-        
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-value">{{ friend.total_points }}</div>
-                <div class="stat-label">Total Points</div>
+        <h3>🎯 Shooting Heat Map</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Visual representation of shot locations</p>
+        <div class="heat-map-court" id="heatMapCourt">
+            <div class="court-half-court">
+                <div class="court-key"></div>
+                <div class="court-paint"></div>
+                <div class="court-hoop"></div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ friend.total_games }}</div>
-                <div class="stat-label">Games</div>
+            <div class="court-half-court right">
+                <div class="court-key"></div>
+                <div class="court-paint"></div>
+                <div class="court-hoop"></div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ friend.total_wins }}</div>
-                <div class="stat-label">Wins</div>
+            <div class="court-center-circle"></div>
+            <div class="court-midline"></div>
+            {% for shot in shots %}
+            <div class="heat-dot {{ shot.type }}" style="left: {{ shot.x }}%; top: {{ shot.y }}%;"></div>
+            {% endfor %}
+        </div>
+        <div class="heat-legend">
+            <div class="legend-item">
+                <div class="legend-dot two"></div>
+                <span>2-Pointer</span>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ friend.total_losses }}</div>
-                <div class="stat-label">Losses</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ friend.total_free_throws }}</div>
-                <div class="stat-label">Free Throws</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ friend.total_fouls_committed }}</div>
-                <div class="stat-label">Fouls</div>
+            <div class="legend-item">
+                <div class="legend-dot three"></div>
+                <span>3-Pointer</span>
             </div>
         </div>
-
-        <a href="/friends" class="btn btn-secondary btn-full">Back to Friends</a>
     </div>
+    {% endif %}
+
+    <a href="/friends" class="btn btn-secondary btn-full">Back to Friends</a>
 </div>
+
+{% block scripts %}
+{% if friend.sport == "basketball" and shots %}
+<script>
+// Add hover effects to heat map dots
+document.querySelectorAll('.heat-dot').forEach(dot => {
+    dot.addEventListener('mouseenter', function() {
+        this.style.transform = 'translate(-50%, -50%) scale(1.5)';
+        this.style.zIndex = '10';
+    });
+    dot.addEventListener('mouseleave', function() {
+        this.style.transform = 'translate(-50%, -50%) scale(1)';
+        this.style.zIndex = '1';
+    });
+});
+</script>
+{% endif %}
+{% endblock %}
 {% endblock %}

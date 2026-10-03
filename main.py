@@ -148,13 +148,52 @@ async def home(request: Request, db: Session = Depends(get_db)):
         TeamMember.user_id == current_user.id
     ).all()
 
+    # Get friends for ranking comparison
+    friends = []
+    for friendship in current_user.friendships_sent:
+        if friendship.status == "accepted":
+            friend = db.query(User).filter(User.id == friendship.friend_id).first()
+            if friend:
+                friends.append(friend)
+
+    for friendship in current_user.friendships_received:
+        if friendship.status == "accepted":
+            friend = db.query(User).filter(User.id == friendship.user_id).first()
+            if friend:
+                friends.append(friend)
+
+    # Calculate user's rank among friends
+    all_users = friends + [current_user]
+    sorted_by_points = sorted(all_users, key=lambda u: u.total_points, reverse=True)
+    sorted_by_win_rate = sorted(all_users, key=lambda u: (u.total_wins / u.total_games if u.total_games > 0 else 0), reverse=True)
+
+    user_points_rank = None
+    user_win_rate_rank = None
+
+    for i, user in enumerate(sorted_by_points, 1):
+        if user.id == current_user.id:
+            user_points_rank = i
+            break
+
+    for i, user in enumerate(sorted_by_win_rate, 1):
+        if user.id == current_user.id:
+            user_win_rate_rank = i
+            break
+
+    friend_rankings = {
+        "points_rank": user_points_rank,
+        "win_rate_rank": user_win_rate_rank,
+        "total_friends": len(friends)
+    }
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": current_user,
         "stats": stats,
         "performance_data": performance_data,
         "recent_matches": recent_matches,
-        "user_teams": user_teams
+        "user_teams": user_teams,
+        "friend_rankings": friend_rankings
     })
 
 
@@ -424,10 +463,71 @@ async def friend_profile(
         return RedirectResponse(url="/friends?error=Not friends with this user", status_code=303)
 
     friend = db.query(User).filter(User.id == user_id).first()
+
+    # Get shot data for heat map
+    shot_data = db.query(MatchEvent).filter(
+        MatchEvent.player_id == user_id,
+        MatchEvent.event_type.in_(["2pt", "3pt"]),
+        MatchEvent.shot_x.isnot(None),
+        MatchEvent.shot_y.isnot(None)
+    ).all()
+
+    shots = [{"x": s.shot_x, "y": s.shot_y, "type": s.event_type} for s in shot_data]
+
     return templates.TemplateResponse("friend_profile.html", {
         "request": request,
         "user": current_user,
-        "friend": friend
+        "friend": friend,
+        "shots": shots
+    })
+
+
+@app.get("/hall-of-fame", response_class=HTMLResponse)
+async def hall_of_fame(
+    request: Request,
+    category: str = "points",
+    filter_type: str = "global",
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Get all users based on filter
+    if filter_type == "global":
+        users = db.query(User).all()
+    elif filter_type == "friends":
+        friend_ids = [f.friend_id for f in current_user.friendships_sent if f.status == "accepted"]
+        friend_ids += [f.user_id for f in current_user.friendships_received if f.status == "accepted"]
+        friend_ids.append(current_user.id)
+        users = db.query(User).filter(User.id.in_(friend_ids)).all()
+    else:  # city (placeholder for future implementation)
+        users = db.query(User).all()
+
+    # Sort based on category
+    if category == "win_percentage":
+        sorted_users = sorted(users, key=lambda u: (u.total_wins / u.total_games if u.total_games > 0 else 0), reverse=True)
+    elif category == "three_pointers":
+        sorted_users = sorted(users, key=lambda u: u.total_three_pointers_made, reverse=True)
+    elif category == "games_played":
+        sorted_users = sorted(users, key=lambda u: u.total_games, reverse=True)
+    else:  # points (default)
+        sorted_users = sorted(users, key=lambda u: u.total_points, reverse=True)
+
+    # Calculate user's rank
+    user_rank = None
+    for i, user in enumerate(sorted_users, 1):
+        if user.id == current_user.id:
+            user_rank = i
+            break
+
+    return templates.TemplateResponse("hall_of_fame.html", {
+        "request": request,
+        "user": current_user,
+        "users": sorted_users,
+        "category": category,
+        "filter_type": filter_type,
+        "user_rank": user_rank
     })
 
 
@@ -803,6 +903,41 @@ async def match_detail(
         TeamMember.team_id == match.team2_id
     ).all()
 
+    # Get events for timeline and score progression
+    events = db.query(MatchEvent).filter(MatchEvent.match_id == match_id).order_by(MatchEvent.timestamp).all()
+
+    # Calculate score progression over time
+    score_progression = []
+    team1_score = 0
+    team2_score = 0
+    event_count = 0
+
+    for event in events:
+        event_count += 1
+        if match.sport == "basketball":
+            if event.event_type in ["2pt", "3pt"]:
+                team_membership = db.query(TeamMember).filter(TeamMember.user_id == event.player_id).first()
+                if team_membership:
+                    points = int(event.event_type[0])
+                    if team_membership.team_id == match.team1_id:
+                        team1_score += points
+                    else:
+                        team2_score += points
+        elif match.sport == "football":
+            if event.event_type == "goal":
+                team_membership = db.query(TeamMember).filter(TeamMember.user_id == event.player_id).first()
+                if team_membership:
+                    if team_membership.team_id == match.team1_id:
+                        team1_score += 1
+                    else:
+                        team2_score += 1
+
+        score_progression.append({
+            "event": event_count,
+            "team1_score": team1_score,
+            "team2_score": team2_score
+        })
+
     return templates.TemplateResponse("match_detail.html", {
         "request": request,
         "user": current_user,
@@ -811,7 +946,9 @@ async def match_detail(
         "team2": team2,
         "referee": referee,
         "team1_members": team1_members,
-        "team2_members": team2_members
+        "team2_members": team2_members,
+        "events": events,
+        "score_progression": score_progression
     })
 
 
@@ -879,6 +1016,8 @@ async def record_event(
     player_id: int = Form(...),
     event_type: str = Form(...),
     target_player_id: int = Form(None),
+    shot_x: int = Form(None),
+    shot_y: int = Form(None),
     db: Session = Depends(get_db)
 ):
     current_user = get_current_user(request, db)
@@ -893,7 +1032,9 @@ async def record_event(
         match_id=match_id,
         player_id=player_id,
         event_type=event_type,
-        target_player_id=target_player_id
+        target_player_id=target_player_id,
+        shot_x=shot_x,
+        shot_y=shot_y
     )
     db.add(event)
 
@@ -1036,6 +1177,13 @@ async def end_match(
             user.total_assists += stats["assists"]
             user.total_goals += stats["goals"]
             user.total_games += 1
+
+            # Track 3-pointers made
+            if match.sport == "basketball":
+                user_events = [e for e in events if e.player_id == player_id]
+                three_pointers = sum(1 for e in user_events if e.event_type == "3pt")
+                user.total_three_pointers += three_pointers
+                user.total_three_pointers_made += three_pointers
 
     # Flush to ensure all changes are written
     db.flush()

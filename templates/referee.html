@@ -3,91 +3,152 @@
 {% block title %}Referee Dashboard - Match #{{ match.id }}{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="card">
-        <h2>Referee Dashboard</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sport: {{ match.sport|capitalize }}</p>
-
-        <!-- Stopwatch -->
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <div id="stopwatch" style="font-size: 3rem; font-weight: 800; font-family: 'SF Mono', Monaco, monospace; margin-bottom: 1rem;">00:00:00</div>
-            <div style="display: flex; gap: 0.5rem; justify-content: center;">
-                <button class="btn" onclick="startStopwatch()">Start</button>
-                <button class="btn btn-secondary" onclick="stopStopwatch()">Stop</button>
-                <button class="btn btn-danger" onclick="resetStopwatch()">Reset</button>
+<div class="referee-container">
+    <!-- Header with Stopwatch -->
+    <div class="referee-header">
+        <div class="match-info">
+            <h1>Match #{{ match.id }}</h1>
+            <span class="sport-badge">{{ match.sport|capitalize }}</span>
+        </div>
+        <div class="stopwatch-section">
+            <div id="stopwatch" class="stopwatch-display">00:00:00</div>
+            <div class="stopwatch-controls">
+                <button class="control-btn start" onclick="startStopwatch()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button class="control-btn stop" onclick="stopStopwatch()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+                </button>
+                <button class="control-btn reset" onclick="resetStopwatch()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                </button>
             </div>
         </div>
+    </div>
 
-        <div class="score-display">
-            <div class="team-score">
-                <div class="team-score-name">{{ team1.name }}</div>
-                <div class="team-score-value" id="team1-score">{{ match.team1_score }}</div>
+    <!-- Score Display -->
+    <div class="scoreboard">
+        <div class="team-card team1">
+            <div class="team-name">{{ team1.name }}</div>
+            <div class="team-score" id="team1-score">{{ match.team1_score }}</div>
+        </div>
+        <div class="vs-divider">VS</div>
+        <div class="team-card team2">
+            <div class="team-name">{{ team2.name }}</div>
+            <div class="team-score" id="team2-score">{{ match.team2_score }}</div>
+        </div>
+    </div>
+
+    <!-- Main Control Panel -->
+    <div class="control-panel">
+        <!-- Player Selection -->
+        <div class="player-selector-section">
+            <h3>Select Player</h3>
+            <div class="team-tabs">
+                <button class="team-tab active" data-team="team1" onclick="switchTeam('team1')">{{ team1.name }}</button>
+                <button class="team-tab" data-team="team2" onclick="switchTeam('team2')">{{ team2.name }}</button>
             </div>
-            <div class="score-divider">-</div>
-            <div class="team-score">
-                <div class="team-score-name">{{ team2.name }}</div>
-                <div class="team-score-value" id="team2-score">{{ match.team2_score }}</div>
-            </div>
+            <select id="player-select" class="player-dropdown">
+                {% for member in team1_members %}
+                <option value="{{ member.id }}" data-team="team1">{{ member.username }}</option>
+                {% endfor %}
+                {% for member in team2_members %}
+                <option value="{{ member.id }}" data-team="team2">{{ member.username }}</option>
+                {% endfor %}
+            </select>
         </div>
 
-        <div class="referee-dashboard">
-            <div>
-                <h3>{{ team1.name }}</h3>
-                <div class="form-group player-select">
-                    <label>Select Player</label>
-                    <select id="team1-player">
-                        {% for member in team1_members %}
-                        <option value="{{ member.id }}">{{ member.username }}</option>
-                        {% endfor %}
-                    </select>
+        <!-- Court/Field Graphic -->
+        {% if match.sport == "basketball" %}
+        <div class="court-section">
+            <h3>Court View - Click to Record Shot Location</h3>
+            <div class="basketball-court" id="court">
+                <div class="court-half-court">
+                    <div class="court-key"></div>
+                    <div class="court-paint"></div>
+                    <div class="court-hoop"></div>
                 </div>
-                <div class="referee-controls">
-                    {% if match.sport == "basketball" %}
-                    <button class="referee-btn two" onclick="recordEvent('2pt', 'team1')">+2</button>
-                    <button class="referee-btn three" onclick="recordEvent('3pt', 'team1')">+3</button>
-                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team1')">Assist</button>
-                    {% elif match.sport == "football" %}
-                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('goal', 'team1')">Goal</button>
-                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team1')">Assist</button>
-                    {% endif %}
+                <div class="court-half-court right">
+                    <div class="court-key"></div>
+                    <div class="court-paint"></div>
+                    <div class="court-hoop"></div>
                 </div>
-            </div>
-
-            <div>
-                <h3>{{ team2.name }}</h3>
-                <div class="form-group player-select">
-                    <label>Select Player</label>
-                    <select id="team2-player">
-                        {% for member in team2_members %}
-                        <option value="{{ member.id }}">{{ member.username }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="referee-controls">
-                    {% if match.sport == "basketball" %}
-                    <button class="referee-btn two" onclick="recordEvent('2pt', 'team2')">+2</button>
-                    <button class="referee-btn three" onclick="recordEvent('3pt', 'team2')">+3</button>
-                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team2')">Assist</button>
-                    {% elif match.sport == "football" %}
-                    <button class="referee-btn" style="background: var(--accent);" onclick="recordEvent('goal', 'team2')">Goal</button>
-                    <button class="referee-btn" style="background: var(--success);" onclick="recordEvent('assist', 'team2')">Assist</button>
-                    {% endif %}
-                </div>
+                <div class="court-center-circle"></div>
+                <div class="court-midline"></div>
             </div>
         </div>
+        {% elif match.sport == "football" %}
+        <div class="field-section">
+            <h3>Field View - Click to Record Shot Location</h3>
+            <div class="football-field" id="field">
+                <div class="field-half left">
+                    <div class="field-box"></div>
+                    <div class="field-goal"></div>
+                </div>
+                <div class="field-half right">
+                    <div class="field-box"></div>
+                    <div class="field-goal"></div>
+                </div>
+                <div class="field-center-circle"></div>
+                <div class="field-midline"></div>
+            </div>
+        </div>
+        {% endif %}
 
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            {% if match.sport == "basketball" %}
+            <button class="action-btn two-pointer" onclick="recordEvent('2pt')">
+                <span class="btn-icon">🏀</span>
+                <span class="btn-text">2 Points</span>
+            </button>
+            <button class="action-btn three-pointer" onclick="recordEvent('3pt')">
+                <span class="btn-icon">🎯</span>
+                <span class="btn-text">3 Points</span>
+            </button>
+            <button class="action-btn assist" onclick="recordEvent('assist')">
+                <span class="btn-icon">👟</span>
+                <span class="btn-text">Assist</span>
+            </button>
+            {% elif match.sport == "football" %}
+            <button class="action-btn goal" onclick="recordEvent('goal')">
+                <span class="btn-icon">⚽</span>
+                <span class="btn-text">Goal</span>
+            </button>
+            <button class="action-btn assist" onclick="recordEvent('assist')">
+                <span class="btn-icon">👟</span>
+                <span class="btn-text">Assist</span>
+            </button>
+            <button class="action-btn save" onclick="recordEvent('save')">
+                <span class="btn-icon">🧤</span>
+                <span class="btn-text">Save</span>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Game Controls -->
+    <div class="game-controls">
         {% if match.status == "pending_referee" %}
-        <form method="post" action="/match/{{ match.id }}/start" style="margin-top: 2rem;">
-            <button type="submit" class="btn btn-full btn-success">Start Game</button>
+        <form method="post" action="/match/{{ match.id }}/start">
+            <button type="submit" class="game-btn start-game">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                Start Game
+            </button>
         </form>
         {% endif %}
 
         {% if match.status == "active" %}
-        <form method="post" action="/match/{{ match.id }}/end" style="margin-top: 2rem;" onsubmit="return confirm('Are you sure you want to end this match? Stats will be finalized.');">
-            <button type="submit" class="btn btn-full btn-danger">End Game & Confirm Stats</button>
+        <form method="post" action="/match/{{ match.id }}/end" onsubmit="return confirm('Are you sure you want to end this match? Stats will be finalized.');">
+            <button type="submit" class="game-btn end-game">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+                End Game & Confirm Stats
+            </button>
         </form>
-
-        <a href="/match/{{ match.id }}/scoreboard" class="btn btn-secondary btn-full" style="margin-top: 0.5rem;" target="_blank">Open Live Scoreboard</a>
+        <a href="/match/{{ match.id }}/scoreboard" class="game-btn scoreboard" target="_blank">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+            Open Live Scoreboard
+        </a>
         {% endif %}
     </div>
 </div>
@@ -95,13 +156,12 @@
 {% block scripts %}
 <script>
 const matchId = {{ match.id }};
-let currentTeam = '';
-let currentPlayerId = '';
-
-// Stopwatch functionality
+let currentTeam = 'team1';
+let shotLocation = null;
 let stopwatchInterval;
 let stopwatchTime = 0;
 
+// Stopwatch functionality
 function formatTime(ms) {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -132,26 +192,109 @@ function resetStopwatch() {
     document.getElementById('stopwatch').textContent = '00:00:00';
 }
 
-function recordEvent(eventType, team) {
-    const playerSelect = document.getElementById(`${team}-player`);
-    const playerId = playerSelect.value;
+// Team switching
+function switchTeam(team) {
+    currentTeam = team;
+    document.querySelectorAll('.team-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.team === team) {
+            tab.classList.add('active');
+        }
+    });
+
+    const select = document.getElementById('player-select');
+    select.innerHTML = '';
+    {% for member in team1_members %}
+    if (team === 'team1') {
+        const option = document.createElement('option');
+        option.value = '{{ member.id }}';
+        option.textContent = '{{ member.username }}';
+        select.appendChild(option);
+    }
+    {% endfor %}
+    {% for member in team2_members %}
+    if (team === 'team2') {
+        const option = document.createElement('option');
+        option.value = '{{ member.id }}';
+        option.textContent = '{{ member.username }}';
+        select.appendChild(option);
+    }
+    {% endfor %}
+}
+
+// Court/Field click handler
+{% if match.sport == "basketball" %}
+const court = document.getElementById('court');
+court.addEventListener('click', (e) => {
+    const rect = court.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+    shotLocation = { x, y };
+
+    // Add visual marker
+    const marker = document.createElement('div');
+    marker.className = 'shot-marker';
+    marker.style.left = `${x}%`;
+    marker.style.top = `${y}%`;
+    court.appendChild(marker);
+
+    // Remove marker after 2 seconds
+    setTimeout(() => marker.remove(), 2000);
+});
+{% elif match.sport == "football" %}
+const field = document.getElementById('field');
+field.addEventListener('click', (e) => {
+    const rect = field.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+    shotLocation = { x, y };
+
+    // Add visual marker
+    const marker = document.createElement('div');
+    marker.className = 'shot-marker';
+    marker.style.left = `${x}%`;
+    marker.style.top = `${y}%`;
+    field.appendChild(marker);
+
+    // Remove marker after 2 seconds
+    setTimeout(() => marker.remove(), 2000);
+});
+{% endif %}
+
+// Record event
+function recordEvent(eventType) {
+    const playerId = document.getElementById('player-select').value;
+    const body = new URLSearchParams({
+        match_id: matchId,
+        player_id: playerId,
+        event_type: eventType
+    });
+
+    if (shotLocation && (eventType === '2pt' || eventType === '3pt' || eventType === 'goal')) {
+        body.append('shot_x', shotLocation.x);
+        body.append('shot_y', shotLocation.y);
+    }
 
     fetch('/referee/event', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `match_id=${matchId}&player_id=${playerId}&event_type=${eventType}`
+        body: body.toString()
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             document.getElementById('team1-score').textContent = data.team1_score;
             document.getElementById('team2-score').textContent = data.team2_score;
+            shotLocation = null;
         }
     })
     .catch(error => console.error('Error:', error));
 }
+
+// Initialize with team1 players
+switchTeam('team1');
 </script>
 {% endblock %}
 {% endblock %}

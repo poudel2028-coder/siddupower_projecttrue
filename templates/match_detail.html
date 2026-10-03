@@ -3,75 +3,209 @@
 {% block title %}Match #{{ match.id }} - Sports Stats{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="card">
-        <h2>Match #{{ match.id }}</h2>
-        
-        <div style="margin-bottom: 1.5rem;">
-            <span class="match-status {{ match.status }}">
-                {% if match.status == "pending_challenge" %}Pending Challenge Acceptance
-                {% elif match.status == "pending_referee" %}Pending Referee Acceptance
-                {% else %}{{ match.status }}
-                {% endif %}
-            </span>
-        </div>
-
-        <div class="score-display">
-            <div class="team-score">
-                <div class="team-score-name">{{ team1.name }}</div>
-                <div class="team-score-value">{{ match.team1_score }}</div>
-            </div>
-            <div class="score-divider">-</div>
-            <div class="team-score">
-                <div class="team-score-name">{{ team2.name }}</div>
-                <div class="team-score-value">{{ match.team2_score }}</div>
-            </div>
-        </div>
-
-        <div style="margin-bottom: 1.5rem; color: var(--text-secondary);">
-            <p>Referee: {{ referee.username }}</p>
-            {% if match.completed_at %}
-            <p>Completed: {{ match.completed_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
+<div class="match-detail-container">
+    <div class="match-header">
+        <h1>Match #{{ match.id }}</h1>
+        <span class="match-status-badge {{ match.status }}">
+            {% if match.status == "pending_challenge" %}Pending Challenge
+            {% elif match.status == "pending_referee" %}Pending Referee
+            {% elif match.status == "active" %}Live
+            {% else %}Completed
             {% endif %}
-            {% if match.mvp_id %}
-            <p>MVP: 
+        </span>
+    </div>
+
+    <!-- Score Display -->
+    <div class="match-scoreboard">
+        <div class="team-display team1">
+            <div class="team-name">{{ team1.name }}</div>
+            <div class="team-score">{{ match.team1_score }}</div>
+        </div>
+        <div class="vs-display">VS</div>
+        <div class="team-display team2">
+            <div class="team-name">{{ team2.name }}</div>
+            <div class="team-score">{{ match.team2_score }}</div>
+        </div>
+    </div>
+
+    <!-- Match Info -->
+    <div class="match-info-card">
+        <div class="info-row">
+            <span class="info-label">Sport:</span>
+            <span class="info-value">{{ match.sport|capitalize }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Referee:</span>
+            <span class="info-value">{{ referee.username }}</span>
+        </div>
+        {% if match.completed_at %}
+        <div class="info-row">
+            <span class="info-label">Completed:</span>
+            <span class="info-value">{{ match.completed_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+        </div>
+        {% endif %}
+        {% if match.mvp_id %}
+        <div class="info-row">
+            <span class="info-label">MVP:</span>
+            <span class="info-value">
                 {% for member in team1_members + team2_members %}
                 {% if member.id == match.mvp_id %}
                 {{ member.username }} <span class="mvp-badge">MVP</span>
                 {% endif %}
                 {% endfor %}
-            </p>
-            {% endif %}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Score Progression Chart -->
+    {% if match.status == "completed" and score_progression %}
+    <div class="card">
+        <h3>Score Progression</h3>
+        <div class="chart-wrapper">
+            <canvas id="scoreChart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Event Timeline -->
+    {% if events %}
+    <div class="card">
+        <h3>Event Timeline</h3>
+        <div class="timeline">
+            {% for event in events %}
+            <div class="timeline-item">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <span class="timeline-event-type">{{ event.event_type|upper }}</span>
+                        <span class="timeline-time">{{ event.timestamp.strftime('%I:%M %p') }}</span>
+                    </div>
+                    <div class="timeline-player">
+                        {% for member in team1_members + team2_members %}
+                        {% if member.id == event.player_id %}
+                        {{ member.username }}
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Team Rosters -->
+    <div class="rosters-section">
+        <div class="card">
+            <h3>{{ team1.name }} Roster</h3>
+            {% for member in team1_members %}
+            <div class="roster-item">
+                <div class="roster-name">{{ member.username }}</div>
+                <div class="roster-stats">
+                    <span>{{ member.total_points }} pts</span>
+                    <span>{{ member.total_wins }}-{{ member.total_losses }}</span>
+                </div>
+            </div>
+            {% endfor %}
         </div>
 
-        <h3>Team 1 Roster</h3>
-        {% for member in team1_members %}
-        <div class="list-item">
-            <div class="list-item-name">{{ member.username }}</div>
+        <div class="card">
+            <h3>{{ team2.name }} Roster</h3>
+            {% for member in team2_members %}
+            <div class="roster-item">
+                <div class="roster-name">{{ member.username }}</div>
+                <div class="roster-stats">
+                    <span>{{ member.total_points }} pts</span>
+                    <span>{{ member.total_wins }}-{{ member.total_losses }}</span>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+    </div>
 
-        <h3 style="margin-top: 1.5rem;">Team 2 Roster</h3>
-        {% for member in team2_members %}
-        <div class="list-item">
-            <div class="list-item-name">{{ member.username }}</div>
-        </div>
-        {% endfor %}
-
+    <!-- Action Buttons -->
+    <div class="match-actions">
         {% if match.status == "pending_referee" and user.id == match.referee_id %}
-        <p style="margin-top: 2rem; color: var(--text-secondary);">Please accept this match from your <a href="/refereeing" style="color: var(--accent);">Refereeing</a> tab.</p>
+        <p style="color: var(--text-secondary); text-align: center;">Please accept this match from your <a href="/refereeing" style="color: var(--accent);">Refereeing</a> tab.</p>
         {% endif %}
 
         {% if match.status == "active" %}
-        <div style="margin-top: 2rem;">
-            <a href="/match/{{ match.id }}/scoreboard" class="btn btn-full">View Live Scoreboard</a>
-            {% if user.id == match.referee_id %}
-            <a href="/referee/{{ match.id }}" class="btn btn-full btn-secondary" style="margin-top: 0.5rem;">Open Referee Dashboard</a>
-            {% endif %}
-        </div>
+        <a href="/match/{{ match.id }}/scoreboard" class="btn btn-full">View Live Scoreboard</a>
+        {% if user.id == match.referee_id %}
+        <a href="/referee/{{ match.id }}" class="btn btn-full btn-secondary">Open Referee Dashboard</a>
+        {% endif %}
         {% endif %}
 
-        <a href="/" class="btn btn-secondary btn-full" style="margin-top: 1.5rem;">Back to Dashboard</a>
+        <a href="/" class="btn btn-secondary btn-full">Back to Dashboard</a>
     </div>
 </div>
+
+{% block scripts %}
+{% if match.status == "completed" and score_progression %}
+<script>
+const scoreCtx = document.getElementById('scoreChart').getContext('2d');
+const scoreLabels = [{% for sp in score_progression %}'Event {{ sp.event }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+const team1Scores = [{% for sp in score_progression %}{{ sp.team1_score }}{% if not loop.last %}, {% endif %}{% endfor %}];
+const team2Scores = [{% for sp in score_progression %}{{ sp.team2_score }}{% if not loop.last %}, {% endif %}{% endfor %}];
+
+new Chart(scoreCtx, {
+    type: 'line',
+    data: {
+        labels: scoreLabels,
+        datasets: [
+            {
+                label: '{{ team1.name }}',
+                data: team1Scores,
+                borderColor: '#0a84ff',
+                backgroundColor: 'rgba(10, 132, 255, 0.1)',
+                tension: 0.4,
+                fill: true
+            },
+            {
+                label: '{{ team2.name }}',
+                data: team2Scores,
+                borderColor: '#30d158',
+                backgroundColor: 'rgba(48, 209, 88, 0.1)',
+                tension: 0.4,
+                fill: true
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: {
+                    color: '#ffffff',
+                    font: { size: 14 }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                },
+                ticks: {
+                    color: '#a1a1a6'
+                }
+            },
+            x: {
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                },
+                ticks: {
+                    color: '#a1a1a6'
+                }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
 {% endblock %}

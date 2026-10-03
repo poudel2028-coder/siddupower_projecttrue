@@ -118,6 +118,8 @@ class MatchEvent(Base):
                                                     # Football: goal, assist, save, foul_given, foul_received
     target_player_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # for fouls, assists
     timestamp = Column(DateTime, default=datetime.utcnow)
+    shot_x = Column(Integer, nullable=True)  # X coordinate on court (0-100)
+    shot_y = Column(Integer, nullable=True)  # Y coordinate on court (0-100)
 
     match = relationship("Match", back_populates="events")
     player = relationship("User", foreign_keys=[player_id], back_populates="match_events")

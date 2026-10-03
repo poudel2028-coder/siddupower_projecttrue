@@ -3,34 +3,61 @@
 {% block title %}Dashboard - Sports Stats{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="card">
-        <h2>Hello, {{ user.username }}</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Sport: {{ stats.sport|capitalize }}</p>
+<div class="dashboard-container">
+    <!-- Welcome Section -->
+    <div class="welcome-card">
+        <h1>Welcome back, {{ user.username }}! 👋</h1>
+        <p class="welcome-subtitle">Sport: {{ stats.sport|capitalize }}</p>
+    </div>
 
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-value">{{ stats.games_played }}</div>
-                <div class="stat-label">Games Played</div>
+    <!-- Friend Rankings -->
+    {% if friend_rankings.total_friends > 0 %}
+    <div class="rankings-card">
+        <h3>🏆 Your Rank Among Friends</h3>
+        <div class="rankings-grid">
+            <div class="ranking-item">
+                <div class="ranking-icon">🥇</div>
+                <div class="ranking-info">
+                    <div class="ranking-label">Points</div>
+                    <div class="ranking-value">#{{ friend_rankings.points_rank }} / {{ friend_rankings.total_friends + 1 }}</div>
+                </div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ stats.wins }}</div>
-                <div class="stat-label">Wins</div>
+            <div class="ranking-item">
+                <div class="ranking-icon">📊</div>
+                <div class="ranking-info">
+                    <div class="ranking-label">Win Rate</div>
+                    <div class="ranking-value">#{{ friend_rankings.win_rate_rank }} / {{ friend_rankings.total_friends + 1 }}</div>
+                </div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ stats.losses }}</div>
-                <div class="stat-label">Losses</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ stats.win_rate }}%</div>
-                <div class="stat-label">Win Rate</div>
-            </div>
+        </div>
+        <a href="/hall-of-fame?filter_type=friends" class="btn btn-secondary btn-full" style="margin-top: 1rem;">View Full Leaderboard</a>
+    </div>
+    {% endif %}
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.games_played }}</div>
+            <div class="stat-label">Games Played</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.wins }}</div>
+            <div class="stat-label">Wins</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.losses }}</div>
+            <div class="stat-label">Losses</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.win_rate }}%</div>
+            <div class="stat-label">Win Rate</div>
         </div>
     </div>
 
+    <!-- Sport-Specific Stats -->
     {% if stats.sport == "basketball" %}
     <div class="card">
-        <h3>Basketball Stats</h3>
+        <h3>🏀 Basketball Stats</h3>
         <div class="stats-grid">
             <div class="stat-item">
                 <div class="stat-value">{{ stats.points_per_game }}</div>
@@ -44,7 +71,7 @@
     </div>
     {% elif stats.sport == "football" %}
     <div class="card">
-        <h3>Football Stats</h3>
+        <h3>⚽ Football Stats</h3>
         <div class="stats-grid">
             <div class="stat-item">
                 <div class="stat-value">{{ stats.goals_per_game }}</div>
@@ -58,6 +85,7 @@
     </div>
     {% endif %}
 
+    <!-- Charts -->
     <div class="charts-container">
         <div class="card">
             <h3>Win/Loss Ratio</h3>
@@ -75,6 +103,7 @@
         {% endif %}
     </div>
 
+    <!-- Teams -->
     <div class="card">
         <h3>Your Teams</h3>
         {% if user_teams %}
@@ -92,6 +121,7 @@
         {% endif %}
     </div>
 
+    <!-- Recent Games -->
     <div class="card">
         <h3>Recent Games</h3>
         {% if recent_matches %}
