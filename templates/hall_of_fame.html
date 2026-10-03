@@ -14,7 +14,7 @@
         <div class="filter-group">
             <label>Category</label>
             <select id="category-select" onchange="changeCategory()">
-                <option value="points" {% if category == 'points' %}selected{% endif %}>Total Points</option>
+                <option value="wins" {% if category == 'wins' %}selected{% endif %}>Most Wins</option>
                 <option value="win_percentage" {% if category == 'win_percentage' %}selected{% endif %}>Win Percentage</option>
                 <option value="three_pointers" {% if category == 'three_pointers' %}selected{% endif %}>Most 3-Pointers</option>
                 <option value="games_played" {% if category == 'games_played' %}selected{% endif %}>Most Games Played</option>
@@ -23,7 +23,6 @@
         <div class="filter-group">
             <label>Filter</label>
             <select id="filter-select" onchange="changeFilter()">
-                <option value="global" {% if filter_type == 'global' %}selected{% endif %}>Global</option>
                 <option value="friends" {% if filter_type == 'friends' %}selected{% endif %}>Friends Only</option>
             </select>
         </div>
@@ -35,7 +34,7 @@
         <div class="rank-number">#{{ user_rank }}</div>
         <div class="rank-info">
             <div class="rank-label">Your Rank</div>
-            <div class="rank-name">{{ user.username }}</div>
+            <div class="rank-name">{{ current_user.username }}</div>
         </div>
     </div>
     {% endif %}
@@ -43,7 +42,7 @@
     <!-- Leaderboard -->
     <div class="leaderboard">
         {% for user in users %}
-        <div class="leaderboard-item {% if user.id == user.id %}highlight{% endif %}">
+        <div class="leaderboard-item {% if user.id == current_user.id %}highlight{% endif %}">
             <div class="rank-badge {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
                 {{ loop.index }}
             </div>
@@ -52,9 +51,9 @@
                 <div class="player-sport">{{ user.sport|capitalize }}</div>
             </div>
             <div class="player-stats">
-                {% if category == 'points' %}
-                <div class="stat-value">{{ user.total_points }}</div>
-                <div class="stat-label">Points</div>
+                {% if category == 'wins' %}
+                <div class="stat-value">{{ user.total_wins }}</div>
+                <div class="stat-label">Wins</div>
                 {% elif category == 'win_percentage' %}
                 <div class="stat-value">{{ (user.total_wins / user.total_games * 100 if user.total_games > 0 else 0)|round(1) }}%</div>
                 <div class="stat-label">Win Rate</div>

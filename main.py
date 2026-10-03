@@ -217,27 +217,19 @@ async def home(request: Request, db: Session = Depends(get_db)):
             if friend:
                 friends.append(friend)
 
-    # Calculate user's rank among friends
+    # Calculate user's rank among friends (by wins only)
     all_users = friends + [current_user]
-    sorted_by_points = sorted(all_users, key=lambda u: u.total_points, reverse=True)
-    sorted_by_win_rate = sorted(all_users, key=lambda u: (u.total_wins / u.total_games if u.total_games > 0 else 0), reverse=True)
+    sorted_by_wins = sorted(all_users, key=lambda u: u.total_wins, reverse=True)
 
-    user_points_rank = None
-    user_win_rate_rank = None
+    user_wins_rank = None
 
-    for i, user in enumerate(sorted_by_points, 1):
+    for i, user in enumerate(sorted_by_wins, 1):
         if user.id == current_user.id:
-            user_points_rank = i
-            break
-
-    for i, user in enumerate(sorted_by_win_rate, 1):
-        if user.id == current_user.id:
-            user_win_rate_rank = i
+            user_wins_rank = i
             break
 
     friend_rankings = {
-        "points_rank": user_points_rank,
-        "win_rate_rank": user_win_rate_rank,
+        "wins_rank": user_wins_rank,
         "total_friends": len(friends)
     }
 
@@ -629,34 +621,29 @@ async def friend_profile(
 @app.get("/hall-of-fame", response_class=HTMLResponse)
 async def hall_of_fame(
     request: Request,
-    category: str = "points",
-    filter_type: str = "global",
+    category: str = "wins",
+    filter_type: str = "friends",
     db: Session = Depends(get_db)
 ):
     current_user = get_current_user(request, db)
     if not current_user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Get all users based on filter
-    if filter_type == "global":
-        users = db.query(User).all()
-    elif filter_type == "friends":
-        friend_ids = [f.friend_id for f in current_user.friendships_sent if f.status == "accepted"]
-        friend_ids += [f.user_id for f in current_user.friendships_received if f.status == "accepted"]
-        friend_ids.append(current_user.id)
-        users = db.query(User).filter(User.id.in_(friend_ids)).all()
-    else:  # city (placeholder for future implementation)
-        users = db.query(User).all()
+    # Get all users based on filter (friends only)
+    friend_ids = [f.friend_id for f in current_user.friendships_sent if f.status == "accepted"]
+    friend_ids += [f.user_id for f in current_user.friendships_received if f.status == "accepted"]
+    friend_ids.append(current_user.id)
+    users = db.query(User).filter(User.id.in_(friend_ids)).all()
 
     # Sort based on category
-    if category == "win_percentage":
+    if category == "wins":
+        sorted_users = sorted(users, key=lambda u: u.total_wins, reverse=True)
+    elif category == "win_percentage":
         sorted_users = sorted(users, key=lambda u: (u.total_wins / u.total_games if u.total_games > 0 else 0), reverse=True)
     elif category == "three_pointers":
         sorted_users = sorted(users, key=lambda u: u.total_three_pointers_made, reverse=True)
     elif category == "games_played":
         sorted_users = sorted(users, key=lambda u: u.total_games, reverse=True)
-    else:  # points (default)
-        sorted_users = sorted(users, key=lambda u: u.total_points, reverse=True)
 
     # Calculate user's rank
     user_rank = None
@@ -667,7 +654,7 @@ async def hall_of_fame(
 
     return templates.TemplateResponse("hall_of_fame.html", {
         "request": request,
-        "user": current_user,
+        "current_user": current_user,
         "users": sorted_users,
         "category": category,
         "filter_type": filter_type,
