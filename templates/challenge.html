@@ -32,19 +32,9 @@
         {% endif %}
 
         {% if active_matches %}
-        <h3>Live Games</h3>
-        {% for match in active_matches %}
-        <div class="list-item" style="border-color: var(--accent);">
-            <div>
-                <div class="list-item-name">{{ match.team1_name }} vs {{ match.team2_name }}</div>
-                <div class="list-item-meta">
-                    <span class="match-status active">LIVE</span>
-                    Score: {{ match.team1_score }} - {{ match.team2_score }}
-                </div>
-            </div>
-            <a href="/match/{{ match.id }}/scoreboard" class="btn btn-sm" target="_blank">Watch Live</a>
+        <div style="background: rgba(48, 209, 88, 0.15); border: 1px solid var(--success); color: var(--success); padding: 1.5rem; border-radius: 12px; text-align: center; margin-bottom: 2rem; font-size: 1.25rem; font-weight: 600;">
+            Game in progress
         </div>
-        {% endfor %}
         {% endif %}
 
         <h3>Create New Challenge</h3>
